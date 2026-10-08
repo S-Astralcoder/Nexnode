@@ -1,7 +1,7 @@
 [project]
 name = "nexnode"
 version = "0.1.0"
-description = "A Node based Agentic Framework to easily create agents with high control and less abstraction."
+description = "A node-based agentic framework designed for maximum control and minimal abstraction."
 readme = "README.md"
 authors = [
     { name = "S-Astralcoder", email = "suraj.astralcode.ai@gmail.com" }
