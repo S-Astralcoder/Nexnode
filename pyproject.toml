@@ -1,0 +1,23 @@
+[project]
+name = "nexnode"
+version = "0.1.0"
+description = "A Node based Agentic Framework to easily create agents with high control and less abstraction."
+readme = "README.md"
+authors = [
+    { name = "S-Astralcoder", email = "suraj.astralcode.ai@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.13.5",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyrefly>=1.3.2",
+    "ruff>=0.16.10",
+]
