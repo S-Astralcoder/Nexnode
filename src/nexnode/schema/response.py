@@ -9,7 +9,7 @@ class ChatCompletionFunction(BaseModel):
     arguments: str
 
     @property
-    def model_data(self) -> dict:
+    def parsed_arguments(self) -> dict:
         return json.loads(self.arguments)
 
 

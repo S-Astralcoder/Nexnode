@@ -15,7 +15,7 @@ class ChatCompletionHeader(BaseModel):
     content_type: Literal["application/json"] = "application/json"
 
     @model_serializer
-    def model_serialization(self):
+    def serialize_headers(self):
         return {
             "Authorization": self.authorization.strip()
             if self.authorization.strip().startswith("Bearer")
@@ -24,15 +24,15 @@ class ChatCompletionHeader(BaseModel):
         }
 
 
-class ToolDetail(BaseModel):
+class FunctionDefinition(BaseModel):
     name: str
     description: str
     parameters: dict[str, Any]
 
 
-class ToolSchema(BaseModel):
-    type: str
-    function: ToolDetail
+class ToolDefinition(BaseModel):
+    type: str = "function"
+    function: FunctionDefinition
 
 
 class ChatCompletionRequest(BaseModel):
@@ -40,10 +40,16 @@ class ChatCompletionRequest(BaseModel):
     messages: list[
         SystemMessage | UserMessage | AssistantMessage | ToolCallResultMessage
     ] = Field(default_factory=list)
-    tools: list[ToolSchema] | None = None
+    tools: list[ToolDefinition] | None = None
     tool_choice: str | dict | None = None
     temperature: float | None = None
     top_p: float | None = None
     max_completion_tokens: int | None = None
     response_format: dict | None = None
     seed: int | None = None
+
+
+# Backward compatibility aliases
+ToolDetail = FunctionDefinition
+ToolSchema = ToolDefinition
+

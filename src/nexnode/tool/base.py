@@ -1,47 +1,52 @@
 import inspect
+import json
 from collections.abc import Callable
 from typing import Any
 
 from pydantic import create_model
 
-from nexnode.exceptions import DuplicateToolName, FunctionNameLimit
+from nexnode.exceptions import DuplicateToolError, ToolNameLengthExceededError
 
 
 def tool():
     def decorator(func: Callable[..., Any]):
-        func._is_tool = True
+        func._is_tool = True  # pyrefly: ignore[missing-attribute]
         return func
 
     return decorator
 
 
-class ToolBase:
+class BaseTool:
     def __init__(self) -> None:
-        self.tool_links: dict[str, Callable] = self.__create_function_link()
+        self.tool_registry: dict[str, Callable] = {}
+        self.tool_registry = self._discover_tools()
 
-    def __create_function_link(self):
-        tool_links: dict[str, Callable] = {}
+    def _discover_tools(self) -> dict[str, Callable]:
+        tool_registry: dict[str, Callable] = {}
         for method_name in dir(self):
-            method = getattr(self, method_name)
-            if hasattr(method, "_is_tool") and method._is_tool:
-                if tool_links.get(method_name, False):
-                    raise DuplicateToolName(
-                        f"The tool {method_name} is already registered in this tool cluster."
+            if method_name.startswith("_") or method_name in ("tool_links", "tool_registry"):
+                continue
+            method = getattr(self, method_name, None)
+            if callable(method) and getattr(method, "_is_tool", False):
+                if method_name in tool_registry:
+                    raise DuplicateToolError(
+                        f"Tool '{method_name}' is already registered in '{type(self).__name__}'."
                     )
-                tool_links.setdefault(method_name, method)
-        return tool_links
+                tool_registry[method_name] = method
+        return tool_registry
 
-    def __create_function_openapi_schema(self, func: Callable):
-        if self.__class__ is ToolBase:
+    def _build_function_schema(self, func: Callable) -> dict[str, Any]:
+        if self.__class__ is BaseTool:
             raise NotImplementedError(
-                "This method can only be used when inherited by a child class."
+                "Cannot generate tool schema directly from 'BaseTool'. Subclass 'BaseTool' and define tools with '@tool'."
             )
 
         name = f"{type(self).__name__}__{func.__name__}"
 
         if len(name) > 64:
-            raise FunctionNameLimit(
-                f"The len of function {func.__name__} should be less that {64 - len(type(self).__name__)}"
+            raise ToolNameLengthExceededError(
+                f"Combined tool name '{name}' exceeds the 64-character limit ({len(name)}/64). "
+                f"Shorten method '{func.__name__}' on '{type(self).__name__}'."
             )
         description = inspect.getdoc(func) or ""
         signature = inspect.signature(func)
@@ -81,18 +86,21 @@ class ToolBase:
             },
         }
 
-    def get_tool_schema(self):
-        if self.__class__ is ToolBase:
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
+        if self.__class__ is BaseTool:
             raise NotImplementedError(
-                "This method can only be used when inherited by a child class."
+                "Cannot generate tool schema directly from 'BaseTool'. Subclass 'BaseTool' and define tools with '@tool'."
             )
-        tool_schema: list[dict] = []
-        for method in self.tool_links.values():
-            tool_schema.append(self.__create_function_openapi_schema(func=method))
-        return tool_schema
+        tool_schemas: list[dict[str, Any]] = []
+        for method in self.tool_registry.values():
+            tool_schemas.append(self._build_function_schema(func=method))
+        return tool_schemas
 
-    def execute_tool_call_function(self, function_name: str, arguments: dict):
+    def execute_tool(self, tool_name: str, arguments: dict) -> str:
         try:
-            return self.tool_links[function_name](**arguments)
+            return json.dumps(self.tool_registry[tool_name](**arguments))
         except Exception as e:  # noqa: BLE001
             return f"{e}"
+
+
+
