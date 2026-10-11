@@ -4,22 +4,21 @@ from typing import Any
 
 from pydantic import create_model
 
-from nexnode.exceptions import DuplicateToolName
+from nexnode.exceptions import DuplicateToolName, FunctionNameLimit
 
+
+def tool():
+    def decorator(func: Callable[..., Any]):
+        func._is_tool = True
+        return func
+
+    return decorator
 
 class ToolBase:
-    @staticmethod
-    def tool():
-        def decorator(func: Callable[..., Any]):
-            func._is_tool = True
-            return func
-
-        return decorator
-
     def __init__(self) -> None:
-        self.tool_links: dict[str, Callable] = self.__create_tool_link()
+        self.tool_links: dict[str, Callable] = self.__create_function_link()
 
-    def __create_tool_link(self):
+    def __create_function_link(self):
         tool_links: dict[str, Callable] = {}
         for method_name in dir(self):
             method = getattr(self, method_name)
@@ -32,7 +31,13 @@ class ToolBase:
         return tool_links
 
     def __create_function_openapi_schema(self, func: Callable):
-        name = func.__name__
+        if self.__class__ is ToolBase:
+            raise NotImplementedError("This method can only be used when inherited by a child class.")
+
+        name = f"{type(self).__name__}__{func.__name__}"
+
+        if len(name) > 64:
+            raise FunctionNameLimit(f"The len of function {func.__name__} should be less that {64 - len(type(self).__name__)}")
         description = inspect.getdoc(func) or ""
         signature = inspect.signature(func)
         field: dict[str, Any] = {}
@@ -72,11 +77,17 @@ class ToolBase:
         }
 
     def get_tool_schema(self):
+        if self.__class__ is ToolBase:
+            raise NotImplementedError("This method can only be used when inherited by a child class.")
         tool_schema : list[dict] = []
         for method in self.tool_links.values():
             tool_schema.append(self.__create_function_openapi_schema(func=method))
         return tool_schema
 
-
+    def execute_tool_call_function(self, function_name : str, arguments : dict):
+        try:
+            return self.tool_links[function_name](**arguments)
+        except Exception as e:  # noqa: BLE001
+            return f"{e}"
 
 
