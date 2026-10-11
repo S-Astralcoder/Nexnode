@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_serializer
 
@@ -24,12 +24,23 @@ class ChatCompletionHeader(BaseModel):
         }
 
 
+class ToolDetail(BaseModel):
+    name: str
+    description: str
+    parameters: dict[str, Any]
+
+
+class ToolSchema(BaseModel):
+    type: str
+    function: ToolDetail
+
+
 class ChatCompletionRequest(BaseModel):
     model: str
     messages: list[
         SystemMessage | UserMessage | AssistantMessage | ToolCallResultMessage
     ] = Field(default_factory=list)
-    tools: list | None = None
+    tools: list[ToolSchema] | None = None
     tool_choice: str | dict | None = None
     temperature: float | None = None
     top_p: float | None = None
