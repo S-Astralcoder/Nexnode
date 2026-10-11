@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 from .messages import (
     AssistantMessage,
@@ -36,6 +36,8 @@ class ToolDefinition(BaseModel):
 
 
 class ChatCompletionRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     model: str
     messages: list[
         SystemMessage | UserMessage | AssistantMessage | ToolCallResultMessage
@@ -52,4 +54,3 @@ class ChatCompletionRequest(BaseModel):
 # Backward compatibility aliases
 ToolDetail = FunctionDefinition
 ToolSchema = ToolDefinition
-

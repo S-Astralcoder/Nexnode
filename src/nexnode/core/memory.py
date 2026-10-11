@@ -14,7 +14,9 @@ MessageType = SystemMessage | UserMessage | AssistantMessage | ToolCallResultMes
 
 
 class AgentMemory(BaseModel):
-    _ALLOWED_TRANSITIONS: ClassVar[dict[type[MessageType] | None, list[type[MessageType]]]] = {
+    _ALLOWED_TRANSITIONS: ClassVar[
+        dict[type[MessageType] | None, list[type[MessageType]]]
+    ] = {
         None: [SystemMessage, UserMessage],
         SystemMessage: [SystemMessage, UserMessage],
         UserMessage: [AssistantMessage],
@@ -38,7 +40,11 @@ class AgentMemory(BaseModel):
 
         if not any(isinstance(message, msg_type) for msg_type in allowed_types):
             current_type_name = type(message).__name__
-            prev_type_name = last_message_type.__name__ if last_message_type else "None (empty memory)"
+            prev_type_name = (
+                last_message_type.__name__
+                if last_message_type
+                else "None (empty memory)"
+            )
             allowed_names = [t.__name__ for t in allowed_types]
             raise InvalidMessageSequenceError(
                 f"Invalid message sequence: cannot append '{current_type_name}' after '{prev_type_name}'. "
@@ -48,7 +54,3 @@ class AgentMemory(BaseModel):
 
     def get_messages(self) -> list[MessageType]:
         return self.messages
-
-
-
-

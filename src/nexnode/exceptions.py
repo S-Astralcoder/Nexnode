@@ -18,6 +18,9 @@ class EmptyMemoryError(NexnodeError):
     """Raised when an operation requires messages but agent memory is empty."""
 
 
+class InvalidToolClassError(NexnodeError):
+    """Raised when an tool class isn't a subclass of base tool class."""
 
 
-
+class DuplicateToolClassError(NexnodeError):
+    """Raised when an tool class is relisted more than once."""

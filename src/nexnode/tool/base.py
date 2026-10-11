@@ -24,7 +24,10 @@ class BaseTool:
     def _discover_tools(self) -> dict[str, Callable]:
         tool_registry: dict[str, Callable] = {}
         for method_name in dir(self):
-            if method_name.startswith("_") or method_name in ("tool_links", "tool_registry"):
+            if method_name.startswith("_") or method_name in (
+                "tool_links",
+                "tool_registry",
+            ):
                 continue
             method = getattr(self, method_name, None)
             if callable(method) and getattr(method, "_is_tool", False):
@@ -101,6 +104,3 @@ class BaseTool:
             return json.dumps(self.tool_registry[tool_name](**arguments))
         except Exception as e:  # noqa: BLE001
             return f"{e}"
-
-
-
