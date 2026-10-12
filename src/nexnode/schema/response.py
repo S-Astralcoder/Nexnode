@@ -1,5 +1,5 @@
 import json
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -9,7 +9,7 @@ class ChatCompletionFunction(BaseModel):
     arguments: str
 
     @property
-    def parsed_arguments(self) -> dict:
+    def parsed_arguments(self) -> dict[str, Any]:
         return json.loads(self.arguments)
 
 
