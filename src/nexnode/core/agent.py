@@ -7,6 +7,7 @@ from ..exceptions import (
     InvalidToolClassError,
     MaxIterationLimitError,
     ToolCallPermissionError,
+    ToolCallResultPermissionError,
 )
 from ..schema.messages import ToolCallResultMessage, UserMessage
 from ..schema.request import ChatCompletionHeader, ChatCompletionRequest, ToolDefinition
@@ -30,7 +31,7 @@ class BaseAgentNode:
         self.tool_class_links: dict[str, BaseTool] = self.__build_tool_class_links()
         self.tools_schema: list[ToolDefinition] = self.__collect_tools_schema()
 
-        self.client = httpx.Client(base_url=self.config.base_url)
+        self.client = httpx.Client(base_url=self.config.base_url, timeout=self.config.timeout)
 
     def __build_tool_class_links(self) -> dict[str, BaseTool]:
         tool_class_links = {}
@@ -67,10 +68,10 @@ class BaseAgentNode:
 
         return tools_schema_list
 
-    def before_tool_execution(self):
+    def before_tool_execution(self, tool_call: ChatCompletionToolCall):
         pass
 
-    def after_tool_execution(self):
+    def after_tool_execution(self, tool_call_result: ToolCallResultMessage):
         pass
 
     def _chat_completion(self) -> ChatCompletionResponse:
@@ -90,18 +91,17 @@ class BaseAgentNode:
         header = ChatCompletionHeader(authorization=self.config.api_key).model_dump()
 
         payload = ChatCompletionRequest(
+            tools=self.tools_schema,
             **self.config.model_dump(),
             **self.memory.model_dump(),
-            tools=self.tools_schema,
-        ).model_dump()
+        ).model_dump(exclude_none=True)
 
         response = self.client.post(
-            url="/v1/chat/completions", headers=header, json=payload
+            url="/chat/completions", headers=header, json=payload
         )
 
         response.raise_for_status()
-
-        return ChatCompletionResponse.model_validate_json(response.json())
+        return ChatCompletionResponse.model_validate(response.json())
 
     def __execute_tool_call(
         self, tool_call: ChatCompletionToolCall
@@ -109,10 +109,12 @@ class BaseAgentNode:
         function_class, function_name = tool_call.function.name.split("__")
         arguments = tool_call.function.parsed_arguments
         try:
-            self.before_tool_execution()
+            self.before_tool_execution(tool_call=tool_call)
         except ToolCallPermissionError as e:
             return ToolCallResultMessage(tool_call_id=tool_call.id, content=f"{e}")
+
         tool_call_instance = self.tool_class_links.get(function_class)
+
         if (
             tool_call_instance is None
             or tool_call_instance.tool_registry.get(function_name) is None
@@ -121,10 +123,20 @@ class BaseAgentNode:
                 tool_call_id=tool_call.id,
                 content=f"The given tool {tool_call.function.name} doesn't exist.",
             )
+
         result = tool_call_instance.execute_tool(
             tool_name=function_name, arguments=arguments
         )
-        return ToolCallResultMessage(tool_call_id=tool_call.id, content=result)
+
+        tool_call_result = ToolCallResultMessage(
+            tool_call_id=tool_call.id, content=result
+        )
+        try:
+            self.after_tool_execution(tool_call_result=tool_call_result)
+        except ToolCallResultPermissionError as e:
+            return ToolCallResultMessage(tool_call_id=tool_call.id, content=f"{e}")
+
+        return tool_call_result
 
     def send_prompt(
         self, prompt: str, max_iteration: int = 10
@@ -138,12 +150,6 @@ class BaseAgentNode:
                 for tool_call in tool_calls:
                     tool_call_result = self.__execute_tool_call(tool_call=tool_call)
                     self.memory.add(tool_call_result)
-                    try:
-                        self.after_tool_execution()
-                    except ToolCallPermissionError as e:
-                        self.memory.agent_memory[-1] = ToolCallResultMessage(
-                            tool_call_id=tool_call.id, content=f"{e}"
-                        )
                 continue
             break
         else:

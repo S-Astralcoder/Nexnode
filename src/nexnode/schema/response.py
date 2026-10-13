@@ -1,7 +1,7 @@
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ChatCompletionFunction(BaseModel):
@@ -24,6 +24,7 @@ class ChatCompletionMessage(BaseModel):
     content: str | None = None
     refusal: str | None = None
     tool_calls: list[ChatCompletionToolCall] | None = None
+    extra_content: dict | None = None
 
 
 class ChatCompletionChoice(BaseModel):
@@ -42,6 +43,7 @@ class ChatCompletionUsage(BaseModel):
 
 
 class ChatCompletionResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     id: str
     object: str
     created: int
