@@ -11,4 +11,4 @@ class AgentConfig(BaseModel):
     max_completion_tokens: int | None = None
     response_format: dict | None = None
     seed: int | None = None
-    timeout : int = 10
+    timeout: int = 10

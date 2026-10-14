@@ -25,7 +25,6 @@ class AssistantMessage(BaseModel):
     extra_content: dict | None = None
 
 
-
 class ToolCallResultMessage(BaseModel):
     role: Literal["tool"] = "tool"
     tool_call_id: str

@@ -34,7 +34,9 @@ class BaseAgentNode:
         self.tool_class_links: dict[str, BaseTool] = self.__build_tool_class_links()
         self.tools_schema: list[ToolDefinition] = self.__collect_tools_schema()
 
-        self.client = httpx.Client(base_url=self.config.base_url, timeout=self.config.timeout)
+        self.client = httpx.Client(
+            base_url=self.config.base_url, timeout=self.config.timeout
+        )
 
     def __build_tool_class_links(self) -> dict[str, BaseTool]:
         tool_class_links = {}
@@ -177,14 +179,20 @@ class SequentialAgentNode:
         self.tool_class_links: dict[str, BaseTool] = self.__build_tool_class_links()
         self.tools_schema: list[ToolDefinition] = self.__collect_tools_schema()
 
-        self.client = httpx.Client(base_url=self.config.base_url, timeout=self.config.timeout)
+        self.client = httpx.Client(
+            base_url=self.config.base_url, timeout=self.config.timeout
+        )
 
+        self.__internal_state: Literal[
+            "AWAITING_INPUT",
+            "AGENT_RESPONSE",
+            "AWAITING_TOOL_EXECUTION",
+            "TOOL_EXECUTION_SUCCESSFUL_NEXT",
+            "TOOL_EXECUTION_ERROR_NEXT",
+            "TOOL_EXECUTION_END",
+        ] = "AWAITING_INPUT"  # if you don't know what your doing. For the love of good don't access or update the value.
 
-
-        self.__internal_state : Literal["AWAITING_INPUT", "AGENT_RESPONSE", "AWAITING_TOOL_EXECUTION", "TOOL_EXECUTION_SUCCESSFUL_NEXT", "TOOL_EXECUTION_ERROR_NEXT", "TOOL_EXECUTION_END"] = "AWAITING_INPUT" # if you don't know what your doing. For the love of good don't access or update the value.
-
-
-        self.tool_execution_queue : list[ChatCompletionToolCall]
+        self.tool_execution_queue: list[ChatCompletionToolCall]
 
     def __build_tool_class_links(self) -> dict[str, BaseTool]:
         tool_class_links = {}
@@ -277,10 +285,12 @@ class SequentialAgentNode:
         response.raise_for_status()
         return ChatCompletionResponse.model_validate(response.json())
 
-
-
     def run_step(self) -> ChatCompletionResponse | ToolCallResultMessage | None:
-        if self.__internal_state in ("AWAITING_INPUT", "TOOL_EXECUTION_END", "AGENT_RESPONSE"):
+        if self.__internal_state in (
+            "AWAITING_INPUT",
+            "TOOL_EXECUTION_END",
+            "AGENT_RESPONSE",
+        ):
             response = self._chat_completion()
             tool_calls = response.choices[0].message.tool_calls
             if tool_calls:
@@ -291,7 +301,11 @@ class SequentialAgentNode:
                 self.__internal_state = "AGENT_RESPONSE"
                 self.memory.add(response)
                 return response
-        elif self.__internal_state in ("AWAITING_TOOL_EXECUTION", "TOOL_EXECUTION_SUCCESSFUL_NEXT", "TOOL_EXECUTION_ERROR_NEXT"):
+        elif self.__internal_state in (
+            "AWAITING_TOOL_EXECUTION",
+            "TOOL_EXECUTION_SUCCESSFUL_NEXT",
+            "TOOL_EXECUTION_ERROR_NEXT",
+        ):
             if not self.tool_execution_queue:
                 self.__internal_state = "TOOL_EXECUTION_END"
                 return
@@ -300,10 +314,9 @@ class SequentialAgentNode:
             self.memory.add(tool_call_result)
             return tool_call_result
         else:
-            raise NexnodeError("A Unexpected Error Occurred that isn't accounted for. Please report it.")
-
-
-
+            raise NexnodeError(
+                "A Unexpected Error Occurred that isn't accounted for. Please report it."
+            )
 
 
 # user message -> llm response -> repeat

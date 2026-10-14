@@ -11,7 +11,13 @@ from ..schema.messages import (
 )
 from ..schema.response import ChatCompletionResponse
 
-MessageType = SystemMessage | UserMessage | AssistantMessage | ToolCallResultMessage | ChatCompletionResponse
+MessageType = (
+    SystemMessage
+    | UserMessage
+    | AssistantMessage
+    | ToolCallResultMessage
+    | ChatCompletionResponse
+)
 
 
 class AgentMemory(BaseModel):
@@ -52,7 +58,12 @@ class AgentMemory(BaseModel):
                 f"Allowed next message types: {allowed_names}."
             )
         if isinstance(message, ChatCompletionResponse):
-            message = AssistantMessage(content=message.choices[0].message.content, tool_calls=message.choices[0].message.tool_calls, refusal=message.choices[0].message.refusal, extra_content=message.choices[0].message.extra_content)
+            message = AssistantMessage(
+                content=message.choices[0].message.content,
+                tool_calls=message.choices[0].message.tool_calls,
+                refusal=message.choices[0].message.refusal,
+                extra_content=message.choices[0].message.extra_content,
+            )
         self.messages.append(message)
 
     def get_messages(self) -> list[MessageType]:
