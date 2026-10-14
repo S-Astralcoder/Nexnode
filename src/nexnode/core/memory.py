@@ -9,8 +9,9 @@ from ..schema.messages import (
     ToolCallResultMessage,
     UserMessage,
 )
+from ..schema.response import ChatCompletionResponse
 
-MessageType = SystemMessage | UserMessage | AssistantMessage | ToolCallResultMessage
+MessageType = SystemMessage | UserMessage | AssistantMessage | ToolCallResultMessage | ChatCompletionResponse
 
 
 class AgentMemory(BaseModel):
@@ -19,7 +20,7 @@ class AgentMemory(BaseModel):
     ] = {
         None: [SystemMessage, UserMessage],
         SystemMessage: [SystemMessage, UserMessage],
-        UserMessage: [AssistantMessage],
+        UserMessage: [AssistantMessage, ChatCompletionResponse],
         AssistantMessage: [ToolCallResultMessage, UserMessage],
         ToolCallResultMessage: [ToolCallResultMessage, UserMessage],
     }
@@ -50,6 +51,8 @@ class AgentMemory(BaseModel):
                 f"Invalid message sequence: cannot append '{current_type_name}' after '{prev_type_name}'. "
                 f"Allowed next message types: {allowed_names}."
             )
+        if isinstance(message, ChatCompletionResponse):
+            message = AssistantMessage(content=message.choices[0].message.content, tool_calls=message.choices[0].message.tool_calls, refusal=message.choices[0].message.refusal, extra_content=message.choices[0].message.extra_content)
         self.messages.append(message)
 
     def get_messages(self) -> list[MessageType]:
