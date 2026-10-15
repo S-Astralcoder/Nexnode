@@ -50,7 +50,7 @@ class BaseAgentNode:
                     f"The class {class_name} isn't derived from parent class BaseTool."
                 )
 
-            if class_name in self.tool_class_links:
+            if class_name in tool_class_links:
                 raise DuplicateToolClassError(
                     f"The class {class_name} can't be added more than once."
                 )
