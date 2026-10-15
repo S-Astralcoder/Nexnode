@@ -118,26 +118,26 @@ class BaseAgentNode(_BaseAgentNode):
         try:
             self.before_tool_execution(tool_call=tool_call)
         except ToolCallPermissionError as e:
-            return ToolCallResultMessage(tool_call_id=tool_call.id, content=f"{e}")
+            tool_call_result = ToolCallResultMessage(tool_call_id=tool_call.id, content=f"{e}")
+        else:
+            tool_call_instance = self.tool_class_links.get(function_class)
 
-        tool_call_instance = self.tool_class_links.get(function_class)
+            if (
+                tool_call_instance is None
+                or tool_call_instance.tool_registry.get(function_name) is None
+            ):
+                tool_call_result = ToolCallResultMessage(
+                    tool_call_id=tool_call.id,
+                    content=f"The given tool {tool_call.function.name} doesn't exist.",
+                )
+            else:
+                result = tool_call_instance.execute_tool(
+                    tool_name=function_name, arguments=arguments
+                )
 
-        if (
-            tool_call_instance is None
-            or tool_call_instance.tool_registry.get(function_name) is None
-        ):
-            return ToolCallResultMessage(
-                tool_call_id=tool_call.id,
-                content=f"The given tool {tool_call.function.name} doesn't exist.",
-            )
-
-        result = tool_call_instance.execute_tool(
-            tool_name=function_name, arguments=arguments
-        )
-
-        tool_call_result = ToolCallResultMessage(
-            tool_call_id=tool_call.id, content=result
-        )
+                tool_call_result = ToolCallResultMessage(
+                    tool_call_id=tool_call.id, content=result
+                )
         try:
             self.after_tool_execution(tool_call_result=tool_call_result)
         except ToolCallResultPermissionError as e:
@@ -198,18 +198,18 @@ class SequentialAgentNode(_BaseAgentNode):
             or tool_call_instance.tool_registry.get(function_name) is None
         ):
             self.__internal_state = "TOOL_EXECUTION_ERROR_NEXT"
-            return ToolCallResultMessage(
+            tool_call_result = ToolCallResultMessage(
                 tool_call_id=tool_call.id,
                 content=f"The given tool {tool_call.function.name} doesn't exist.",
             )
+        else:
+            result = tool_call_instance.execute_tool(
+                tool_name=function_name, arguments=arguments
+            )
 
-        result = tool_call_instance.execute_tool(
-            tool_name=function_name, arguments=arguments
-        )
-
-        tool_call_result = ToolCallResultMessage(
-            tool_call_id=tool_call.id, content=result
-        )
+            tool_call_result = ToolCallResultMessage(
+                tool_call_id=tool_call.id, content=result
+            )
         self.__internal_state = "TOOL_EXECUTION_SUCCESSFUL_NEXT"
 
         return tool_call_result
