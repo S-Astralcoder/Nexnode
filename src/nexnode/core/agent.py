@@ -86,7 +86,7 @@ class BaseAgentNode:
             )
         last_message = self.memory.messages[-1]
 
-        if not isinstance(last_message, UserMessage):
+        if not isinstance(last_message, (UserMessage, ToolCallResultMessage)):
             last_message_type = type(last_message).__name__
             raise InvalidMessageSequenceError(
                 f"Cannot execute chat completion: the last message must be a 'UserMessage', "
@@ -104,6 +104,7 @@ class BaseAgentNode:
         response = self.client.post(
             url="/chat/completions", headers=header, json=payload
         )
+
 
         response.raise_for_status()
         return ChatCompletionResponse.model_validate(response.json())
@@ -150,6 +151,7 @@ class BaseAgentNode:
         self.memory.add(message=user_message)
         for _ in range(max_iteration):
             response = self._chat_completion()
+            self.memory.add(response)
             tool_calls = response.choices[0].message.tool_calls
             if tool_calls:
                 for tool_call in tool_calls:
@@ -161,7 +163,6 @@ class BaseAgentNode:
             raise MaxIterationLimitError(
                 f"Max iteration limit {max_iteration} reached."
             )
-        self.memory.add(response)
         return response
 
 
@@ -206,7 +207,7 @@ class SequentialAgentNode:
                     f"The class {class_name} isn't derived from parent class BaseTool."
                 )
 
-            if class_name in self.tool_class_links:
+            if class_name in tool_class_links:
                 raise DuplicateToolClassError(
                     f"The class {class_name} can't be added more than once."
                 )
@@ -263,7 +264,7 @@ class SequentialAgentNode:
             )
         last_message = self.memory.messages[-1]
 
-        if not isinstance(last_message, UserMessage):
+        if not isinstance(last_message, (UserMessage, ToolCallResultMessage)):
             last_message_type = type(last_message).__name__
             raise InvalidMessageSequenceError(
                 f"Cannot execute chat completion: the last message must be a 'UserMessage', "
@@ -292,6 +293,7 @@ class SequentialAgentNode:
             "AGENT_RESPONSE",
         ):
             response = self._chat_completion()
+            self.memory.add(response)
             tool_calls = response.choices[0].message.tool_calls
             if tool_calls:
                 self.__internal_state = "AWAITING_TOOL_EXECUTION"
@@ -299,7 +301,6 @@ class SequentialAgentNode:
                 return response
             else:
                 self.__internal_state = "AGENT_RESPONSE"
-                self.memory.add(response)
                 return response
         elif self.__internal_state in (
             "AWAITING_TOOL_EXECUTION",

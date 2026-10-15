@@ -17,6 +17,8 @@ class ChatCompletionToolCall(BaseModel):
     id: str
     type: Literal["function"]
     function: ChatCompletionFunction
+    extra_content: dict | None = None
+    
 
 
 class ChatCompletionMessage(BaseModel):

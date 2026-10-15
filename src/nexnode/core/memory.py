@@ -28,7 +28,7 @@ class AgentMemory(BaseModel):
         SystemMessage: [SystemMessage, UserMessage],
         UserMessage: [AssistantMessage, ChatCompletionResponse],
         AssistantMessage: [ToolCallResultMessage, UserMessage],
-        ToolCallResultMessage: [ToolCallResultMessage, UserMessage],
+        ToolCallResultMessage: [ToolCallResultMessage, UserMessage, ChatCompletionResponse],
     }
     messages: list[MessageType] = Field(default_factory=list)
 
@@ -37,9 +37,7 @@ class AgentMemory(BaseModel):
         """Backward compatibility property for messages."""
         return self.messages
 
-    @model_serializer
-    def serialize_messages(self) -> list[MessageType]:
-        return self.messages
+
 
     def add(self, message: MessageType) -> None:
         last_message_type = type(self.messages[-1]) if self.messages else None
