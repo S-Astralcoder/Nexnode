@@ -20,7 +20,7 @@ from .config import AgentConfig
 from .memory import AgentMemory
 
 
-class BaseAgentNode:
+class _BaseAgentNode:
     def __init__(
         self,
         config: AgentConfig,
@@ -31,14 +31,14 @@ class BaseAgentNode:
         self.memory = memory
         self.tools = tools
 
-        self.tool_class_links: dict[str, BaseTool] = self.__build_tool_class_links()
-        self.tools_schema: list[ToolDefinition] = self.__collect_tools_schema()
+        self.tool_class_links: dict[str, BaseTool] = self._build_tool_class_links()
+        self.tools_schema: list[ToolDefinition] = self._collect_tools_schema()
 
         self.client = httpx.Client(
             base_url=self.config.base_url, timeout=self.config.timeout
         )
 
-    def __build_tool_class_links(self) -> dict[str, BaseTool]:
+    def _build_tool_class_links(self) -> dict[str, BaseTool]:
         tool_class_links = {}
         if self.tools is None:
             return tool_class_links
@@ -58,7 +58,7 @@ class BaseAgentNode:
             tool_class_links.setdefault(class_name, tool_class)
         return tool_class_links
 
-    def __collect_tools_schema(self) -> list[ToolDefinition]:
+    def _collect_tools_schema(self) -> list[ToolDefinition]:
         tools_schema_list: list[ToolDefinition] = []
         if self.tools is None:
             return tools_schema_list
@@ -72,12 +72,6 @@ class BaseAgentNode:
             )
 
         return tools_schema_list
-
-    def before_tool_execution(self, tool_call: ChatCompletionToolCall):
-        pass
-
-    def after_tool_execution(self, tool_call_result: ToolCallResultMessage):
-        pass
 
     def _chat_completion(self) -> ChatCompletionResponse:
         if not self.memory.messages:
@@ -105,9 +99,16 @@ class BaseAgentNode:
             url="/chat/completions", headers=header, json=payload
         )
 
-
         response.raise_for_status()
         return ChatCompletionResponse.model_validate(response.json())
+
+
+class BaseAgentNode(_BaseAgentNode):
+    def before_tool_execution(self, tool_call: ChatCompletionToolCall):
+        pass
+
+    def after_tool_execution(self, tool_call_result: ToolCallResultMessage):
+        pass
 
     def __execute_tool_call(
         self, tool_call: ChatCompletionToolCall
@@ -166,23 +167,14 @@ class BaseAgentNode:
         return response
 
 
-class SequentialAgentNode:
+class SequentialAgentNode(_BaseAgentNode):
     def __init__(
         self,
         config: AgentConfig,
         memory: AgentMemory,
-        tools: list | None = None,
+        tools: list[BaseTool] | None = None,
     ) -> None:
-        self.config = config
-        self.memory = memory
-        self.tools = tools
-
-        self.tool_class_links: dict[str, BaseTool] = self.__build_tool_class_links()
-        self.tools_schema: list[ToolDefinition] = self.__collect_tools_schema()
-
-        self.client = httpx.Client(
-            base_url=self.config.base_url, timeout=self.config.timeout
-        )
+        super().__init__(config=config, memory=memory, tools=tools)
 
         self.__internal_state: Literal[
             "AWAITING_INPUT",
@@ -194,41 +186,6 @@ class SequentialAgentNode:
         ] = "AWAITING_INPUT"  # if you don't know what your doing. For the love of good don't access or update the value.
 
         self.tool_execution_queue: list[ChatCompletionToolCall]
-
-    def __build_tool_class_links(self) -> dict[str, BaseTool]:
-        tool_class_links = {}
-        if self.tools is None:
-            return tool_class_links
-        for tool_class in self.tools:
-            class_name = type(tool_class).__name__
-
-            if not isinstance(tool_class, BaseTool) or class_name == BaseTool.__name__:
-                raise InvalidToolClassError(
-                    f"The class {class_name} isn't derived from parent class BaseTool."
-                )
-
-            if class_name in tool_class_links:
-                raise DuplicateToolClassError(
-                    f"The class {class_name} can't be added more than once."
-                )
-
-            tool_class_links.setdefault(class_name, tool_class)
-        return tool_class_links
-
-    def __collect_tools_schema(self) -> list[ToolDefinition]:
-        tools_schema_list: list[ToolDefinition] = []
-        if self.tools is None:
-            return tools_schema_list
-
-        for tool_class in self.tools:
-            tools_schema_list.extend(
-                [
-                    ToolDefinition(**tool_schema)
-                    for tool_schema in tool_class.get_tool_schemas()
-                ]
-            )
-
-        return tools_schema_list
 
     def __execute_tool_call(
         self, tool_call: ChatCompletionToolCall
@@ -256,35 +213,6 @@ class SequentialAgentNode:
         self.__internal_state = "TOOL_EXECUTION_SUCCESSFUL_NEXT"
 
         return tool_call_result
-
-    def _chat_completion(self) -> ChatCompletionResponse:
-        if not self.memory.messages:
-            raise EmptyMemoryError(
-                "Cannot execute chat completion: agent memory is empty."
-            )
-        last_message = self.memory.messages[-1]
-
-        if not isinstance(last_message, (UserMessage, ToolCallResultMessage)):
-            last_message_type = type(last_message).__name__
-            raise InvalidMessageSequenceError(
-                f"Cannot execute chat completion: the last message must be a 'UserMessage', "
-                f"but found '{last_message_type}'."
-            )
-
-        header = ChatCompletionHeader(authorization=self.config.api_key).model_dump()
-
-        payload = ChatCompletionRequest(
-            tools=self.tools_schema,
-            **self.config.model_dump(),
-            **self.memory.model_dump(),
-        ).model_dump(exclude_none=True)
-
-        response = self.client.post(
-            url="/chat/completions", headers=header, json=payload
-        )
-
-        response.raise_for_status()
-        return ChatCompletionResponse.model_validate(response.json())
 
     def run_step(self) -> ChatCompletionResponse | ToolCallResultMessage | None:
         if self.__internal_state in (
