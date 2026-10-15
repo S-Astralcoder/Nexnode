@@ -25,7 +25,7 @@ class BaseAgentNode:
         self,
         config: AgentConfig,
         memory: AgentMemory,
-        tools: list | None = None,
+        tools: list[BaseTool] | None = None,
     ) -> None:
         self.config = config
         self.memory = memory
