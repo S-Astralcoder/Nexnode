@@ -112,7 +112,7 @@ class BaseAgentNode:
     def __execute_tool_call(
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
-        function_class, function_name = tool_call.function.name.split("__")
+        function_class, function_name = tool_call.function.name.split("__") if len(tool_call.function.name.split("__")) == 2 else ["", tool_call.function.name]
         arguments = tool_call.function.parsed_arguments
         try:
             self.before_tool_execution(tool_call=tool_call)
@@ -233,7 +233,7 @@ class SequentialAgentNode:
     def __execute_tool_call(
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
-        function_class, function_name = tool_call.function.name.split("__")
+        function_class, function_name = tool_call.function.name.split("__") if len(tool_call.function.name.split("__")) == 2 else ["", tool_call.function.name]
         arguments = tool_call.function.parsed_arguments
         tool_call_instance = self.tool_class_links.get(function_class)
         if (
