@@ -7,6 +7,10 @@
 
 A lightweight, node-based Python agent framework built for **maximum control and minimal abstraction**. Zero hidden magic, explicit state transitions, first-class tool governance, and unrestricted access to execution internals.
 
+> [!NOTE]
+> **Why "Node-Based"?**  
+> Nexnode treats agents as atomic, isolated execution units ("Nodes") designed to be linked across topologies via a forthcoming Linker layer (where inter-node handoffs can be dispatched as tool calls). In this **Beta phase**, testing and hardening focus strictly on single-node execution stability, memory invariants, and tool governance before multi-node linking is introduced.
+
 ---
 
 ## Architecture at a Glance
