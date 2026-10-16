@@ -83,7 +83,7 @@ class _BaseAgentNode:
         if not isinstance(last_message, (UserMessage, ToolCallResultMessage)):
             last_message_type = type(last_message).__name__
             raise InvalidMessageSequenceError(
-                f"Cannot execute chat completion: the last message must be a 'UserMessage', "
+                f"Cannot execute chat completion: the last message must be a 'UserMessage' or 'ToolCallResultMessage', "
                 f"but found '{last_message_type}'."
             )
 
@@ -176,7 +176,7 @@ class SequentialAgentNode(_BaseAgentNode):
     ) -> None:
         super().__init__(config=config, memory=memory, tools=tools)
 
-        self.__internal_state: Literal[
+        self._internal_state: Literal[
             "AWAITING_INPUT",
             "AGENT_RESPONSE",
             "AWAITING_TOOL_EXECUTION",
@@ -197,7 +197,7 @@ class SequentialAgentNode(_BaseAgentNode):
             tool_call_instance is None
             or tool_call_instance.tool_registry.get(function_name) is None
         ):
-            self.__internal_state = "TOOL_EXECUTION_ERROR_NEXT"
+            self._internal_state = "TOOL_EXECUTION_ERROR_NEXT"
             tool_call_result = ToolCallResultMessage(
                 tool_call_id=tool_call.id,
                 content=f"The given tool {tool_call.function.name} doesn't exist.",
@@ -210,12 +210,19 @@ class SequentialAgentNode(_BaseAgentNode):
             tool_call_result = ToolCallResultMessage(
                 tool_call_id=tool_call.id, content=result
             )
-        self.__internal_state = "TOOL_EXECUTION_SUCCESSFUL_NEXT"
+        self._internal_state = "TOOL_EXECUTION_SUCCESSFUL_NEXT"
 
         return tool_call_result
 
+    def _chat_completion(self) -> ChatCompletionResponse:
+        try:
+            return super()._chat_completion()
+        except InvalidMessageSequenceError as e:
+            self._internal_state = "AWAITING_INPUT"
+            raise InvalidMessageSequenceError(e)
+
     def run_step(self) -> ChatCompletionResponse | ToolCallResultMessage | None:
-        if self.__internal_state in (
+        if self._internal_state in (
             "AWAITING_INPUT",
             "TOOL_EXECUTION_END",
             "AGENT_RESPONSE",
@@ -224,19 +231,19 @@ class SequentialAgentNode(_BaseAgentNode):
             self.memory.add(response)
             tool_calls = response.choices[0].message.tool_calls
             if tool_calls:
-                self.__internal_state = "AWAITING_TOOL_EXECUTION"
+                self._internal_state = "AWAITING_TOOL_EXECUTION"
                 self.tool_execution_queue = tool_calls
                 return response
             else:
-                self.__internal_state = "AGENT_RESPONSE"
+                self._internal_state = "AGENT_RESPONSE"
                 return response
-        elif self.__internal_state in (
+        elif self._internal_state in (
             "AWAITING_TOOL_EXECUTION",
             "TOOL_EXECUTION_SUCCESSFUL_NEXT",
             "TOOL_EXECUTION_ERROR_NEXT",
         ):
             if not self.tool_execution_queue:
-                self.__internal_state = "TOOL_EXECUTION_END"
+                self._internal_state = "TOOL_EXECUTION_END"
                 return
             tool_call = self.tool_execution_queue.pop(0)
             tool_call_result = self.__execute_tool_call(tool_call=tool_call)
