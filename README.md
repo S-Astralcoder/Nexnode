@@ -209,7 +209,8 @@ while True:
 Nexnode is built on a simple premise: **you own the agent, not the framework**. Unlike opinionated frameworks that seal away execution details behind inaccessible closures, Nexnode gives developers the explicit right to inspect, intercept, and modify internal attributes for advanced orchestration.
 
 > [!CAUTION]
-> **Developer Contract**: While internal attributes are intentionally accessible, they govern the core state machine. Do not mutate them arbitrarily unless you fully understand the transition mechanics. Desynchronizing state from memory will trigger `InvalidMessageSequenceError` or unexpected loop failures.
+> **Developer Contract & Tampering Disclaimer**:  
+> While internal attributes are deliberately accessible, **tampering with internal state carries zero warranty**. If an error, sequence violation, or crash occurs because you manually mutated `_internal_state`, popped/injected into `_tool_execution_queue`, or manipulated messages out of order, **that is operator mishandling, not a framework bug**. Nexnode grants you total control, but takes zero responsibility for defects caused by state tampering.
 
 ### Inspecting and Mutating `SequentialAgentNode` Internals
 
@@ -287,6 +288,10 @@ Testers: please concentrate on finding breakages in these specific areas:
 - [ ] **API & Backend Parity**: Testing against local/alternative providers (Ollama, vLLM, Groq, OpenRouter).
 
 ### Submitting Bug Reports
+
+> [!IMPORTANT]
+> **What is NOT a Bug**: Failures or desynchronizations resulting from manually overriding or tampering with internal attributes (`_internal_state`, `_tool_execution_queue`, etc.) are classified as operator mishandling, not framework bugs. Do not file bug reports for issues arising from custom state mutation unless the defect reproduces on clean, untampered node runs.
+
 Include:
 1. Python version & OS.
 2. Minimal reproducible script.
