@@ -27,11 +27,13 @@ class AgentMemory(BaseModel):
         None: [SystemMessage, UserMessage],
         SystemMessage: [SystemMessage, UserMessage],
         UserMessage: [AssistantMessage, ChatCompletionResponse],
-        AssistantMessage: [ToolCallResultMessage, UserMessage],
+        AssistantMessage: [ToolCallResultMessage, UserMessage, SystemMessage],
         ToolCallResultMessage: [
             ToolCallResultMessage,
             UserMessage,
             ChatCompletionResponse,
+            AssistantMessage,
+            SystemMessage
         ],
     }
     messages: list[MessageType] = Field(default_factory=list)

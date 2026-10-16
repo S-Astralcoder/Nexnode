@@ -38,6 +38,13 @@ class _BaseAgentNode:
             base_url=self.config.base_url, timeout=self.config.timeout
         )
 
+    def before_tool_execution(self, tool_call: ChatCompletionToolCall):
+        pass
+
+    def after_tool_execution(self, tool_call_result: ToolCallResultMessage):
+        pass
+
+
     def _build_tool_class_links(self) -> dict[str, BaseTool]:
         tool_class_links = {}
         if self.tools is None:
@@ -104,13 +111,9 @@ class _BaseAgentNode:
 
 
 class BaseAgentNode(_BaseAgentNode):
-    def before_tool_execution(self, tool_call: ChatCompletionToolCall):
-        pass
 
-    def after_tool_execution(self, tool_call_result: ToolCallResultMessage):
-        pass
 
-    def __execute_tool_call(
+    def _execute_tool_call(
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
         function_class, function_name = (
@@ -162,7 +165,7 @@ class BaseAgentNode(_BaseAgentNode):
             tool_calls = response.choices[0].message.tool_calls
             if tool_calls:
                 for tool_call in tool_calls:
-                    tool_call_result = self.__execute_tool_call(tool_call=tool_call)
+                    tool_call_result = self._execute_tool_call(tool_call=tool_call)
                     self.memory.add(tool_call_result)
                 continue
             break
@@ -189,13 +192,15 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
             "TOOL_EXECUTION_SUCCESSFUL_NEXT",
             "TOOL_EXECUTION_ERROR_NEXT",
             "TOOL_EXECUTION_END",
+            "TOOL_EXECUTION_PERMISSION_DENIED",
+            "TOOL_EXECUTION_RESULT_BLOCKED"
         ] = "AWAITING_INPUT"  # if you don't know what your doing. For the love of good don't access or update the value.
 
         self._tool_execution_queue: list[
             ChatCompletionToolCall
         ]  # also same for this. don't modify, if you don't know what your doing.
 
-    def __execute_tool_call(
+    def _execute_tool_call(
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
         function_class, function_name = (
@@ -204,29 +209,42 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
             else ["", tool_call.function.name]
         )
         arguments = tool_call.function.parsed_arguments
-        tool_call_instance = self.tool_class_links.get(function_class)
-        if (
-            tool_call_instance is None
-            or tool_call_instance.tool_registry.get(function_name) is None
-        ):
+        try:
+            self.before_tool_execution(tool_call=tool_call)
+        except ToolCallPermissionError as e:
+            self._internal_state = "TOOL_EXECUTION_PERMISSION_DENIED"
             tool_call_result = ToolCallResultMessage(
-                tool_call_id=tool_call.id,
-                content=f"The given tool {tool_call.function.name} doesn't exist.",
+                tool_call_id=tool_call.id, content=f"{e}"
             )
-            self._internal_state = "TOOL_EXECUTION_ERROR_NEXT"
         else:
-            error, result = tool_call_instance.execute_tool(
-                tool_name=function_name, arguments=arguments
-            )
-
-            tool_call_result = ToolCallResultMessage(
-                tool_call_id=tool_call.id, content=result
-            )
-            if error:
+            tool_call_instance = self.tool_class_links.get(function_class)
+            if (
+                tool_call_instance is None
+                or tool_call_instance.tool_registry.get(function_name) is None
+            ):
+                tool_call_result = ToolCallResultMessage(
+                    tool_call_id=tool_call.id,
+                    content=f"The given tool {tool_call.function.name} doesn't exist.",
+                )
                 self._internal_state = "TOOL_EXECUTION_ERROR_NEXT"
             else:
-                self._internal_state = "TOOL_EXECUTION_SUCCESSFUL_NEXT"
+                error, result = tool_call_instance.execute_tool(
+                    tool_name=function_name, arguments=arguments
+                )
 
+                tool_call_result = ToolCallResultMessage(
+                    tool_call_id=tool_call.id, content=result
+                )
+                if error:
+                    self._internal_state = "TOOL_EXECUTION_ERROR_NEXT"
+                else:
+                    self._internal_state = "TOOL_EXECUTION_SUCCESSFUL_NEXT"
+
+        try:
+            self.after_tool_execution(tool_call_result=tool_call_result)
+        except ToolCallResultPermissionError as e:
+            self._internal_state = "TOOL_EXECUTION_RESULT_BLOCKED"
+            return ToolCallResultMessage(tool_call_id=tool_call.id, content=f"{e}")
         return tool_call_result
 
     def _chat_completion(self) -> ChatCompletionResponse:
@@ -256,12 +274,14 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
             "AWAITING_TOOL_EXECUTION",
             "TOOL_EXECUTION_SUCCESSFUL_NEXT",
             "TOOL_EXECUTION_ERROR_NEXT",
+            "TOOL_EXECUTION_PERMISSION_DENIED",
+            "TOOL_EXECUTION_RESULT_BLOCKED"
         ):
             if not self._tool_execution_queue:
                 self._internal_state = "TOOL_EXECUTION_END"
                 return
             tool_call = self._tool_execution_queue.pop(0)
-            tool_call_result = self.__execute_tool_call(tool_call=tool_call)
+            tool_call_result = self._execute_tool_call(tool_call=tool_call)
             self.memory.add(tool_call_result)
             return tool_call_result
         else:
