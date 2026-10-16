@@ -13,14 +13,14 @@ class ChatCompletionFunction(BaseModel):
         try:
             return json.loads(self.arguments)
         except json.JSONDecodeError as e:
-            return {"101_error" : e}
+            return {"101_error": e}
+
 
 class ChatCompletionToolCall(BaseModel):
     id: str
     type: Literal["function"]
     function: ChatCompletionFunction
     extra_content: dict | None = None
-
 
 
 class ChatCompletionMessage(BaseModel):

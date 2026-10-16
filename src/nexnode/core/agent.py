@@ -113,12 +113,18 @@ class BaseAgentNode(_BaseAgentNode):
     def __execute_tool_call(
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
-        function_class, function_name = tool_call.function.name.split("__") if len(tool_call.function.name.split("__")) == 2 else ["", tool_call.function.name]
+        function_class, function_name = (
+            tool_call.function.name.split("__")
+            if len(tool_call.function.name.split("__")) == 2
+            else ["", tool_call.function.name]
+        )
         arguments = tool_call.function.parsed_arguments
         try:
             self.before_tool_execution(tool_call=tool_call)
         except ToolCallPermissionError as e:
-            tool_call_result = ToolCallResultMessage(tool_call_id=tool_call.id, content=f"{e}")
+            tool_call_result = ToolCallResultMessage(
+                tool_call_id=tool_call.id, content=f"{e}"
+            )
         else:
             tool_call_instance = self.tool_class_links.get(function_class)
 
@@ -131,7 +137,7 @@ class BaseAgentNode(_BaseAgentNode):
                     content=f"The given tool {tool_call.function.name} doesn't exist.",
                 )
             else:
-                _ , result = tool_call_instance.execute_tool(
+                _, result = tool_call_instance.execute_tool(
                     tool_name=function_name, arguments=arguments
                 )
 
@@ -185,12 +191,18 @@ class SequentialAgentNode(_BaseAgentNode):
             "TOOL_EXECUTION_END",
         ] = "AWAITING_INPUT"  # if you don't know what your doing. For the love of good don't access or update the value.
 
-        self._tool_execution_queue: list[ChatCompletionToolCall] # also same for this. don't modify, if you don't know what your doing.
+        self._tool_execution_queue: list[
+            ChatCompletionToolCall
+        ]  # also same for this. don't modify, if you don't know what your doing.
 
     def __execute_tool_call(
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
-        function_class, function_name = tool_call.function.name.split("__") if len(tool_call.function.name.split("__")) == 2 else ["", tool_call.function.name]
+        function_class, function_name = (
+            tool_call.function.name.split("__")
+            if len(tool_call.function.name.split("__")) == 2
+            else ["", tool_call.function.name]
+        )
         arguments = tool_call.function.parsed_arguments
         tool_call_instance = self.tool_class_links.get(function_class)
         if (
@@ -203,7 +215,7 @@ class SequentialAgentNode(_BaseAgentNode):
             )
             self._internal_state = "TOOL_EXECUTION_ERROR_NEXT"
         else:
-            error , result = tool_call_instance.execute_tool(
+            error, result = tool_call_instance.execute_tool(
                 tool_name=function_name, arguments=arguments
             )
 
@@ -214,7 +226,6 @@ class SequentialAgentNode(_BaseAgentNode):
                 self._internal_state = "TOOL_EXECUTION_ERROR_NEXT"
             else:
                 self._internal_state = "TOOL_EXECUTION_SUCCESSFUL_NEXT"
-
 
         return tool_call_result
 

@@ -101,8 +101,13 @@ class BaseTool:
 
     def execute_tool(self, tool_name: str, arguments: dict) -> tuple[bool, str]:
         try:
-            if arguments.get("101_error") is not None: # a weird way to handel but works right!
+            if (
+                arguments.get("101_error") is not None
+            ):  # a weird way to handel but works right!
                 return (True, json.dumps(arguments))
-            return (False, json.dumps(self.tool_registry[tool_name](**arguments))) # Any error including invalid argument will be considered as a function call error and send back to the agent to fix it's problem.
+            return (
+                False,
+                json.dumps(self.tool_registry[tool_name](**arguments)),
+            )  # Any error including invalid argument will be considered as a function call error and send back to the agent to fix it's problem.
         except Exception as e:  # noqa: BLE001
             return (True, f"{e}")
