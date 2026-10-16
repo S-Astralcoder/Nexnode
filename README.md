@@ -142,7 +142,7 @@ print(response.choices[0].message.content)
 
 ### 4. Tool Governance & Security Hooks
 
-Intercept and veto tool calls or sanitize outputs by subclassing `BaseAgentNode`:
+Intercept and veto tool calls or sanitize outputs by implementing hooks on `BaseAgentNode` or `SequentialAgentNode` (both inherit from `_BaseAgentNode`):
 
 ```python
 from nexnode.core.agent import BaseAgentNode
@@ -222,6 +222,8 @@ Nexnode is built on a simple premise: **you own the agent, not the framework**. 
    - `"AWAITING_TOOL_EXECUTION"`: The LLM requested tools; `_tool_execution_queue` has been populated.
    - `"TOOL_EXECUTION_SUCCESSFUL_NEXT"`: Tool executed successfully; ready to pop next queued call.
    - `"TOOL_EXECUTION_ERROR_NEXT"`: Tool call failed or tool not found; error surfaced.
+   - `"TOOL_EXECUTION_PERMISSION_DENIED"`: Tool execution was intercepted and denied by `before_tool_execution`.
+   - `"TOOL_EXECUTION_RESULT_BLOCKED"`: Tool result was intercepted and redacted by `after_tool_execution`.
    - `"TOOL_EXECUTION_END"`: All queued tools finished; ready to call completion with tool results.
 
 2. **`node._tool_execution_queue`**: A mutable `list[ChatCompletionToolCall]` holding pending calls.
@@ -257,8 +259,8 @@ if node._internal_state == "AWAITING_TOOL_EXECUTION":
 | *Empty* (`None`) | `SystemMessage`, `UserMessage` | `InvalidMessageSequenceError` |
 | `SystemMessage` | `SystemMessage`, `UserMessage` | `InvalidMessageSequenceError` |
 | `UserMessage` | `AssistantMessage`, `ChatCompletionResponse` | `InvalidMessageSequenceError` |
-| `AssistantMessage` | `ToolCallResultMessage`, `UserMessage` | `InvalidMessageSequenceError` |
-| `ToolCallResultMessage` | `ToolCallResultMessage`, `UserMessage`, `ChatCompletionResponse` | `InvalidMessageSequenceError` |
+| `AssistantMessage` | `ToolCallResultMessage`, `UserMessage`, `SystemMessage` | `InvalidMessageSequenceError` |
+| `ToolCallResultMessage` | `ToolCallResultMessage`, `UserMessage`, `AssistantMessage`, `ChatCompletionResponse`, `SystemMessage` | `InvalidMessageSequenceError` |
 
 ---
 
