@@ -44,7 +44,7 @@ class AgentMemory(BaseModel):
         return self.messages
 
     def add(self, message: MessageType) -> None:
-        last_message_type = type(self.messages[-1]) if self.messages else None
+        last_message_type: type[AssistantMessage | ChatCompletionResponse | SystemMessage | ToolCallResultMessage | UserMessage] | None = type(self.messages[-1]) if self.messages else None
         allowed_types = self._ALLOWED_TRANSITIONS.get(last_message_type, [])
 
         if not any(isinstance(message, msg_type) for msg_type in allowed_types):

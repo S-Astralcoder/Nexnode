@@ -1,6 +1,9 @@
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
+from httpx._models import Response
+
+from nexnode.core.memory import MessageType
 
 from ..exceptions import (
     DuplicateToolClassError,
@@ -38,15 +41,15 @@ class _BaseAgentNode:
             base_url=self.config.base_url, timeout=self.config.timeout
         )
 
-    def before_tool_execution(self, tool_call: ChatCompletionToolCall):
+    def before_tool_execution(self, tool_call: ChatCompletionToolCall) -> None:
         pass
 
-    def after_tool_execution(self, tool_call_result: ToolCallResultMessage):
+    def after_tool_execution(self, tool_call_result: ToolCallResultMessage) -> None:
         pass
 
 
     def _build_tool_class_links(self) -> dict[str, BaseTool]:
-        tool_class_links = {}
+        tool_class_links: dict[str, BaseTool] = {}
         if self.tools is None:
             return tool_class_links
         for tool_class in self.tools:
@@ -85,24 +88,24 @@ class _BaseAgentNode:
             raise EmptyMemoryError(
                 "Cannot execute chat completion: agent memory is empty."
             )
-        last_message = self.memory.messages[-1]
+        last_message: MessageType = self.memory.messages[-1]
 
         if not isinstance(last_message, (UserMessage, ToolCallResultMessage)):
-            last_message_type = type(last_message).__name__
+            last_message_type: str = type(last_message).__name__
             raise InvalidMessageSequenceError(
                 f"Cannot execute chat completion: the last message must be a 'UserMessage' or 'ToolCallResultMessage', "
                 f"but found '{last_message_type}'."
             )
 
-        header = ChatCompletionHeader(authorization=self.config.api_key).model_dump()
+        header: dict[str, Any] = ChatCompletionHeader(authorization=self.config.api_key).model_dump()
 
-        payload = ChatCompletionRequest(
+        payload: dict[str, Any] = ChatCompletionRequest(
             tools=self.tools_schema,
             **self.config.model_dump(),
             **self.memory.model_dump(),
         ).model_dump(exclude_none=True)
 
-        response = self.client.post(
+        response: Response = self.client.post(
             url="/chat/completions", headers=header, json=payload
         )
 
@@ -121,7 +124,7 @@ class BaseAgentNode(_BaseAgentNode):
             if len(tool_call.function.name.split("__")) == 2
             else ["", tool_call.function.name]
         )
-        arguments = tool_call.function.parsed_arguments
+        arguments: dict[str, Any] = tool_call.function.parsed_arguments
         try:
             self.before_tool_execution(tool_call=tool_call)
         except ToolCallPermissionError as e:
@@ -129,7 +132,7 @@ class BaseAgentNode(_BaseAgentNode):
                 tool_call_id=tool_call.id, content=f"{e}"
             )
         else:
-            tool_call_instance = self.tool_class_links.get(function_class)
+            tool_call_instance: BaseTool | None = self.tool_class_links.get(function_class)
 
             if (
                 tool_call_instance is None
@@ -160,12 +163,12 @@ class BaseAgentNode(_BaseAgentNode):
         user_message = UserMessage(content=prompt)
         self.memory.add(message=user_message)
         for _ in range(max_iteration):
-            response = self._chat_completion()
+            response: ChatCompletionResponse = self._chat_completion()
             self.memory.add(response)
-            tool_calls = response.choices[0].message.tool_calls
+            tool_calls: list[ChatCompletionToolCall] | None = response.choices[0].message.tool_calls
             if tool_calls:
                 for tool_call in tool_calls:
-                    tool_call_result = self._execute_tool_call(tool_call=tool_call)
+                    tool_call_result: ToolCallResultMessage = self._execute_tool_call(tool_call=tool_call)
                     self.memory.add(tool_call_result)
                 continue
             break
@@ -208,7 +211,7 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
             if len(tool_call.function.name.split("__")) == 2
             else ["", tool_call.function.name]
         )
-        arguments = tool_call.function.parsed_arguments
+        arguments: dict[str, Any] = tool_call.function.parsed_arguments
         try:
             self.before_tool_execution(tool_call=tool_call)
         except ToolCallPermissionError as e:
@@ -217,7 +220,7 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
                 tool_call_id=tool_call.id, content=f"{e}"
             )
         else:
-            tool_call_instance = self.tool_class_links.get(function_class)
+            tool_call_instance: BaseTool | None = self.tool_class_links.get(function_class)
             if (
                 tool_call_instance is None
                 or tool_call_instance.tool_registry.get(function_name) is None
@@ -260,9 +263,9 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
             "TOOL_EXECUTION_END",
             "AGENT_RESPONSE",
         ):
-            response = self._chat_completion()
+            response: ChatCompletionResponse = self._chat_completion()
             self.memory.add(response)
-            tool_calls = response.choices[0].message.tool_calls
+            tool_calls: list[ChatCompletionToolCall] | None = response.choices[0].message.tool_calls
             if tool_calls:
                 self._internal_state = "AWAITING_TOOL_EXECUTION"
                 self._tool_execution_queue = tool_calls
@@ -280,8 +283,8 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
             if not self._tool_execution_queue:
                 self._internal_state = "TOOL_EXECUTION_END"
                 return
-            tool_call = self._tool_execution_queue.pop(0)
-            tool_call_result = self._execute_tool_call(tool_call=tool_call)
+            tool_call: ChatCompletionToolCall = self._tool_execution_queue.pop(0)
+            tool_call_result: ToolCallResultMessage = self._execute_tool_call(tool_call=tool_call)
             self.memory.add(tool_call_result)
             return tool_call_result
         else:

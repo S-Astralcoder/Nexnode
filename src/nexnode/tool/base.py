@@ -10,7 +10,8 @@ from nexnode.exceptions import DuplicateToolError, ToolNameLengthExceededError
 
 def tool():
     def decorator(func: Callable[..., Any]):
-        func._is_tool = True  # pyrefly: ignore[missing-attribute]
+        # pyrefly: ignore[missing-attribute]
+        func._is_tool = True
         return func
 
     return decorator
@@ -44,15 +45,15 @@ class BaseTool:
                 "Cannot generate tool schema directly from 'BaseTool'. Subclass 'BaseTool' and define tools with '@tool'."
             )
 
-        name = f"{type(self).__name__}__{func.__name__}"
+        name: str = f"{type(self).__name__}__{func.__name__}"
 
         if len(name) > 64:
             raise ToolNameLengthExceededError(
                 f"Combined tool name '{name}' exceeds the 64-character limit ({len(name)}/64). "
                 f"Shorten method '{func.__name__}' on '{type(self).__name__}'."
             )
-        description = inspect.getdoc(func) or ""
-        signature = inspect.signature(func)
+        description: str = inspect.getdoc(func) or ""
+        signature: inspect.Signature = inspect.signature(func)
         field: dict[str, Any] = {}
 
         for param_name, param in signature.parameters.items():
@@ -62,7 +63,7 @@ class BaseTool:
             ):
                 continue
 
-            annotation = (
+            annotation: type[Any] | Any = (
                 param.annotation if param.annotation != inspect.Parameter.empty else Any
             )
 
@@ -71,7 +72,7 @@ class BaseTool:
             else:
                 field[param_name] = (annotation, param.default)
 
-        DynamicModel = create_model(
+        DynamicModel: type[Any] = create_model(
             f"{name}_arguments",
             **field,
         )
