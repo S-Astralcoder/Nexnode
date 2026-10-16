@@ -1,6 +1,6 @@
 from typing import ClassVar
 
-from pydantic import BaseModel, Field, model_serializer
+from pydantic import BaseModel, Field
 
 from ..exceptions import InvalidMessageSequenceError
 from ..schema.messages import (

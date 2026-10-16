@@ -173,7 +173,7 @@ class BaseAgentNode(_BaseAgentNode):
         return response
 
 
-class SequentialAgentNode(_BaseAgentNode):
+class SequentialAgentNode(_BaseAgentNode): # beta node design
     def __init__(
         self,
         config: AgentConfig,
