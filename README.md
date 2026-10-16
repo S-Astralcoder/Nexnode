@@ -5,7 +5,7 @@
 > Nexnode is undergoing initial testing, bug detection, and stability hardening.  
 > **No new features will be introduced** until existing core components pass rigorous testing rounds.
 
-A lightweight, node-based Python agent framework built for **maximum control and minimal abstraction**. Zero hidden magic, explicit state transitions, and first-class tool governance.
+A lightweight, node-based Python agent framework built for **maximum control and minimal abstraction**. Zero hidden magic, explicit state transitions, first-class tool governance, and unrestricted access to execution internals.
 
 ---
 
@@ -17,7 +17,7 @@ Nexnode splits agent operations into explicit, inspectable primitives:
 - **[`AgentMemory`](src/nexnode/core/memory.py)**: State-machine guarded message buffer preventing malformed API requests.
 - **[`BaseTool`](src/nexnode/tool/base.py)**: Schema generator using type hints and docstrings with `{Class}__{method}` namespacing.
 - **[`BaseAgentNode`](src/nexnode/core/agent.py)**: Autonomous execution loop with pre/post-execution policy hooks.
-- **[`SequentialAgentNode`](src/nexnode/core/agent.py)**: Single-step execution node for human-in-the-loop validation and custom scheduling.
+- **[`SequentialAgentNode`](src/nexnode/core/agent.py)**: Single-step execution node for human-in-the-loop validation, custom scheduling, and fine-grained state manipulation.
 
 ```mermaid
 flowchart LR
@@ -31,6 +31,31 @@ flowchart LR
     H --> B
     E -- No --> I[Final Response]
     I --> B
+```
+
+---
+
+## Message Types & Schemas
+
+All conversation state in Nexnode is represented by typed Pydantic message models defined in `nexnode.schema.messages`. Unlike monolithic dictionaries, each message type enforces role boundaries and structural constraints:
+
+| Message Class | Role | Attributes | Purpose |
+| :--- | :--- | :--- | :--- |
+| **`SystemMessage`** | `"system"` \| `"developer"` | `content: str`, `role: str = "system"` | Guides model behavior, system prompts, and operational personas. |
+| **`UserMessage`** | `"user"` | `content: str \| list[dict]`, `role: str = "user"`, `name: str \| None = None` | User queries, multimodal input dictionaries, or external event prompts. |
+| **`AssistantMessage`** | `"assistant"` | `content: str \| None`, `tool_calls: list[ChatCompletionToolCall] \| None`, `refusal: str \| None`, `extra_content: dict \| None` | Raw model generations, including planned tool invocations. |
+| **`ToolCallResultMessage`** | `"tool"` | `tool_call_id: str`, `content: str`, `role: str = "tool"` | Serialized outputs or permission errors returned to the LLM following tool calls. |
+
+> [!TIP]
+> **Automatic Conversion**: You do not need to manually parse [`ChatCompletionResponse`](src/nexnode/schema/response.py) into an `AssistantMessage`. Passing a raw `ChatCompletionResponse` directly to `memory.add(response)` automatically extracts the choice message and appends it as an `AssistantMessage`.
+
+```python
+from nexnode.schema.messages import SystemMessage, UserMessage, ToolCallResultMessage
+from nexnode.core.memory import AgentMemory
+
+memory = AgentMemory()
+memory.add(SystemMessage(content="You are a precise data analysis assistant."))
+memory.add(UserMessage(content="Parse this quarterly report."))
 ```
 
 ---
@@ -176,6 +201,49 @@ while True:
     elif isinstance(step, ToolCallResultMessage):
         print(f"Executed tool -> Result: {step.content}")
 ```
+
+---
+
+## Low-Level Control: Accessing Internal State
+
+Nexnode is built on a simple premise: **you own the agent, not the framework**. Unlike opinionated frameworks that seal away execution details behind inaccessible closures, Nexnode gives developers the explicit right to inspect, intercept, and modify internal attributes for advanced orchestration.
+
+> [!CAUTION]
+> **Developer Contract**: While internal attributes are intentionally accessible, they govern the core state machine. Do not mutate them arbitrarily unless you fully understand the transition mechanics. Desynchronizing state from memory will trigger `InvalidMessageSequenceError` or unexpected loop failures.
+
+### Inspecting and Mutating `SequentialAgentNode` Internals
+
+`SequentialAgentNode` exposes two key internal attributes:
+
+1. **`node._internal_state`**: Dictates what action `run_step()` performs next.
+   - `"AWAITING_INPUT"`: Idle state; waiting for new messages in `AgentMemory`.
+   - `"AGENT_RESPONSE"`: Last step returned a final LLM text response.
+   - `"AWAITING_TOOL_EXECUTION"`: The LLM requested tools; `_tool_execution_queue` has been populated.
+   - `"TOOL_EXECUTION_SUCCESSFUL_NEXT"`: Tool executed successfully; ready to pop next queued call.
+   - `"TOOL_EXECUTION_ERROR_NEXT"`: Tool call failed or tool not found; error surfaced.
+   - `"TOOL_EXECUTION_END"`: All queued tools finished; ready to call completion with tool results.
+
+2. **`node._tool_execution_queue`**: A mutable `list[ChatCompletionToolCall]` holding pending calls.
+   - Inspect pending arguments before execution.
+   - Reorder, throttle, or inject synthetic tool calls dynamically.
+   - Clear the queue to abort remaining calls.
+
+```python
+# Example: Inspecting and resetting internal state
+print(f"Current node state: {node._internal_state}")
+
+# Abort remaining tool calls mid-flight
+if node._internal_state == "AWAITING_TOOL_EXECUTION":
+    print(f"Pending tool calls: {len(node._tool_execution_queue)}")
+    node._tool_execution_queue.clear()
+    node._internal_state = "TOOL_EXECUTION_END"
+```
+
+### Inspecting Node & Memory Primitives
+
+- **`node.tool_class_links`**: Access the live `dict[str, BaseTool]` mapping to dynamically register or inspect tool instances.
+- **`node.tools_schema`**: View the generated `list[ToolDefinition]` sent to OpenAI-compatible endpoints.
+- **`memory.messages`**: The raw, ordered message buffer. Can be sliced, logged, or saved to a database for checkpointing.
 
 ---
 
