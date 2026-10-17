@@ -47,7 +47,6 @@ class _BaseAgentNode:
     def after_tool_execution(self, tool_call_result: ToolCallResultMessage) -> None:
         pass
 
-
     def _build_tool_class_links(self) -> dict[str, BaseTool]:
         tool_class_links: dict[str, BaseTool] = {}
         if self.tools is None:
@@ -97,7 +96,9 @@ class _BaseAgentNode:
                 f"but found '{last_message_type}'."
             )
 
-        header: dict[str, Any] = ChatCompletionHeader(authorization=self.config.api_key).model_dump()
+        header: dict[str, Any] = ChatCompletionHeader(
+            authorization=self.config.api_key
+        ).model_dump()
 
         payload: dict[str, Any] = ChatCompletionRequest(
             tools=self.tools_schema,
@@ -114,8 +115,6 @@ class _BaseAgentNode:
 
 
 class BaseAgentNode(_BaseAgentNode):
-
-
     def _execute_tool_call(
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
@@ -132,7 +131,9 @@ class BaseAgentNode(_BaseAgentNode):
                 tool_call_id=tool_call.id, content=f"{e}"
             )
         else:
-            tool_call_instance: BaseTool | None = self.tool_class_links.get(function_class)
+            tool_call_instance: BaseTool | None = self.tool_class_links.get(
+                function_class
+            )
 
             if (
                 tool_call_instance is None
@@ -165,10 +166,14 @@ class BaseAgentNode(_BaseAgentNode):
         for _ in range(max_iteration):
             response: ChatCompletionResponse = self._chat_completion()
             self.memory.add(response)
-            tool_calls: list[ChatCompletionToolCall] | None = response.choices[0].message.tool_calls
+            tool_calls: list[ChatCompletionToolCall] | None = response.choices[
+                0
+            ].message.tool_calls
             if tool_calls:
                 for tool_call in tool_calls:
-                    tool_call_result: ToolCallResultMessage = self._execute_tool_call(tool_call=tool_call)
+                    tool_call_result: ToolCallResultMessage = self._execute_tool_call(
+                        tool_call=tool_call
+                    )
                     self.memory.add(tool_call_result)
                 continue
             break
@@ -179,7 +184,7 @@ class BaseAgentNode(_BaseAgentNode):
         return response
 
 
-class SequentialAgentNode(_BaseAgentNode): # beta node design
+class SequentialAgentNode(_BaseAgentNode):  # beta node design
     def __init__(
         self,
         config: AgentConfig,
@@ -196,7 +201,7 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
             "TOOL_EXECUTION_ERROR_NEXT",
             "TOOL_EXECUTION_END",
             "TOOL_EXECUTION_PERMISSION_DENIED",
-            "TOOL_EXECUTION_RESULT_BLOCKED"
+            "TOOL_EXECUTION_RESULT_BLOCKED",
         ] = "AWAITING_INPUT"  # if you don't know what your doing. For the love of good don't access or update the value.
 
         self._tool_execution_queue: list[
@@ -220,7 +225,9 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
                 tool_call_id=tool_call.id, content=f"{e}"
             )
         else:
-            tool_call_instance: BaseTool | None = self.tool_class_links.get(function_class)
+            tool_call_instance: BaseTool | None = self.tool_class_links.get(
+                function_class
+            )
             if (
                 tool_call_instance is None
                 or tool_call_instance.tool_registry.get(function_name) is None
@@ -265,7 +272,9 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
         ):
             response: ChatCompletionResponse = self._chat_completion()
             self.memory.add(response)
-            tool_calls: list[ChatCompletionToolCall] | None = response.choices[0].message.tool_calls
+            tool_calls: list[ChatCompletionToolCall] | None = response.choices[
+                0
+            ].message.tool_calls
             if tool_calls:
                 self._internal_state = "AWAITING_TOOL_EXECUTION"
                 self._tool_execution_queue = tool_calls
@@ -278,13 +287,15 @@ class SequentialAgentNode(_BaseAgentNode): # beta node design
             "TOOL_EXECUTION_SUCCESSFUL_NEXT",
             "TOOL_EXECUTION_ERROR_NEXT",
             "TOOL_EXECUTION_PERMISSION_DENIED",
-            "TOOL_EXECUTION_RESULT_BLOCKED"
+            "TOOL_EXECUTION_RESULT_BLOCKED",
         ):
             if not self._tool_execution_queue:
                 self._internal_state = "TOOL_EXECUTION_END"
                 return
             tool_call: ChatCompletionToolCall = self._tool_execution_queue.pop(0)
-            tool_call_result: ToolCallResultMessage = self._execute_tool_call(tool_call=tool_call)
+            tool_call_result: ToolCallResultMessage = self._execute_tool_call(
+                tool_call=tool_call
+            )
             self.memory.add(tool_call_result)
             return tool_call_result
         else:

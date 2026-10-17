@@ -10,7 +10,7 @@ from nexnode.exceptions import DuplicateToolError, ToolNameLengthExceededError
 
 def tool():
     def decorator(func: Callable[..., Any]):
-        func._is_tool = True # pyright: ignore[reportFunctionMemberAccess]
+        func._is_tool = True  # pyright: ignore[reportFunctionMemberAccess]
         return func
 
     return decorator

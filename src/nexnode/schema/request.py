@@ -49,8 +49,3 @@ class ChatCompletionRequest(BaseModel):
     max_completion_tokens: int | None = None
     response_format: dict | None = None
     seed: int | None = None
-
-
-# Backward compatibility aliases
-ToolDetail = FunctionDefinition
-ToolSchema = ToolDefinition

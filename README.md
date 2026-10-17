@@ -164,7 +164,9 @@ class SecureAgentNode(BaseAgentNode):
     def after_tool_execution(self, tool_call_result: ToolCallResultMessage):
         # Redact sensitive payloads
         if "PRIVATE_KEY" in tool_call_result.content:
-            raise ToolCallResultPermissionError("Tool output redacted due to privacy policy.")
+            raise ToolCallResultPermissionError(
+                "Tool output redacted due to privacy policy."
+            )
 ```
 
 ---
