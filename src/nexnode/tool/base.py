@@ -10,8 +10,7 @@ from nexnode.exceptions import DuplicateToolError, ToolNameLengthExceededError
 
 def tool():
     def decorator(func: Callable[..., Any]):
-        # pyrefly: ignore[missing-attribute]
-        func._is_tool = True
+        func._is_tool = True # pyright: ignore[reportFunctionMemberAccess]
         return func
 
     return decorator

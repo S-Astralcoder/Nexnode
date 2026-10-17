@@ -26,5 +26,5 @@ jobs:
       - name: Run ruff check
         run: uv run ruff check src
 
-      - name: Run pyrefly typing check
-        run: uv run pyrefly check
+      - name: Run pyright typing check
+        run: uv run pyright
