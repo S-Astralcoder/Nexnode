@@ -38,11 +38,6 @@ class AgentMemory(BaseModel):
     }
     messages: list[MessageType] = Field(default_factory=list)
 
-    @property
-    def agent_memory(self) -> list[MessageType]:
-        """Backward compatibility property for messages."""
-        return self.messages
-
     def add(self, message: MessageType) -> None:
         last_message_type: (
             type[
