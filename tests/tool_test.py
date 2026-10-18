@@ -152,3 +152,25 @@ def test_execute_tool_error_handling():
     is_err, err_msg = tool_instance.execute_tool("divide", {"101_error": "malformed JSON input"})
     assert is_err is True
     assert err_msg == '{"101_error": "malformed JSON input"}'
+
+
+def test_basetool_direct_schema_methods_raise_not_implemented():
+    mock_base = object.__new__(BaseTool)
+
+    with pytest.raises(NotImplementedError):
+        mock_base.get_tool_schemas()
+
+    with pytest.raises(NotImplementedError):
+        mock_base._build_function_schema(lambda: None)
+
+
+def test_execute_tool_non_serializable_return():
+    class UnserializableTool(BaseTool):
+        @tool()
+        def get_set(self) -> set:
+            return {1, 2, 3}
+
+    instance = UnserializableTool()
+    is_err, err_msg = instance.execute_tool("get_set", {})
+    assert is_err is True
+    assert "not JSON serializable" in err_msg or "TypeError" in err_msg
