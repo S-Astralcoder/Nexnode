@@ -1,8 +1,10 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
 class AgentConfig(BaseModel):
-    base_url: str
+    base_url: str | Literal["https://generativelanguage.googleapis.com/v1beta/openai/"]
     api_key: str
     model: str
     tool_choice: str | dict | None = None
