@@ -41,7 +41,9 @@ def test_tool_registry_matches_decorated_tools():
 def test_tool_name_length_exceeded():
     class DummyTool(BaseTool):
         @tool()
-        def this_is_a_method_name_that_is_deliberately_long_enough_to_exceed_the_limit(self) -> None:
+        def this_is_a_method_name_that_is_deliberately_long_enough_to_exceed_the_limit(
+            self,
+        ) -> None:
             pass
 
     instance = DummyTool()
@@ -77,6 +79,7 @@ def test_generated_schema_matches_tool():
 def test_tool_schema_with_custom_typing():
     from enum import Enum
     from typing import Literal
+
     from pydantic import BaseModel, Field
 
     class RoleEnum(str, Enum):
@@ -120,3 +123,32 @@ def test_tool_schema_with_custom_typing():
     assert "RoleEnum" in defs
     assert defs["RoleEnum"]["enum"] == ["admin", "user"]
     assert "Profile" in defs
+
+
+def test_execute_tool_error_handling():
+    class ExecutionTool(BaseTool):
+        @tool()
+        def divide(self, a: int, b: int) -> float:
+            return a / b
+
+    tool_instance = ExecutionTool()
+
+    is_err, result = tool_instance.execute_tool("divide", {"a": 10, "b": 2})
+    assert is_err is False
+    assert result == "5.0"
+
+    is_err, err_msg = tool_instance.execute_tool("divide", {"a": 10, "b": 0})
+    assert is_err is True
+    assert "division by zero" in err_msg
+
+    is_err, err_msg = tool_instance.execute_tool("non_existent_tool", {})
+    assert is_err is True
+    assert "non_existent_tool" in err_msg
+
+    is_err, err_msg = tool_instance.execute_tool("divide", {"unexpected": 1})
+    assert is_err is True
+    assert "missing" in err_msg or "divide()" in err_msg
+
+    is_err, err_msg = tool_instance.execute_tool("divide", {"101_error": "malformed JSON input"})
+    assert is_err is True
+    assert err_msg == '{"101_error": "malformed JSON input"}'

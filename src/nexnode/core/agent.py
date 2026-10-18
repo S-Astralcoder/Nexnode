@@ -97,7 +97,7 @@ class _BaseAgentNode:
             )
 
         header: dict[str, Any] = ChatCompletionHeader(
-            authorization=self.config.api_key
+            token=self.config.api_key
         ).model_dump()
 
         payload: dict[str, Any] = ChatCompletionRequest(
