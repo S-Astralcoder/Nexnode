@@ -1,8 +1,5 @@
-import re
-
 import pytest
 
-from nexnode.schema.request import ChatCompletionHeader
 from nexnode.schema.response import ChatCompletionFunction
 
 
@@ -23,8 +20,14 @@ from nexnode.schema.response import ChatCompletionFunction
         {"name": "test_truncated_unicode", "arguments": '{"char": "\\u123"}'},
         {"name": "test_multiple_root_objects", "arguments": '{"a": 1} {"b": 2}'},
         {"name": "test_plain_text_error", "arguments": "Internal Server Error: 500"},
-        {"name": "test_html_content", "arguments": "<html><body>Bad Gateway</body></html>"},
-        {"name": "test_python_literals", "arguments": "{'is_admin': True, 'count': None}"},
+        {
+            "name": "test_html_content",
+            "arguments": "<html><body>Bad Gateway</body></html>",
+        },
+        {
+            "name": "test_python_literals",
+            "arguments": "{'is_admin': True, 'count': None}",
+        },
     ],
 )
 def test_chat_completion_function_model_arguement_serialization_handling_for_invalid_arguments(
@@ -32,4 +35,3 @@ def test_chat_completion_function_model_arguement_serialization_handling_for_inv
 ):
     tool_function = ChatCompletionFunction(**payload)
     assert "101_error" in tool_function.parsed_arguments
-
