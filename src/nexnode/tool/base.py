@@ -12,6 +12,7 @@ def tool():
     def decorator(func: Callable[..., Any]):
         func._is_tool = True  # pyright: ignore[reportFunctionMemberAccess]
         return func
+
     return decorator
 
 
@@ -23,7 +24,7 @@ class BaseTool:
         if self.__class__ is BaseTool:
             raise NotImplementedError(
                 "Cannot discover tools directly from 'BaseTool'. Subclass 'BaseTool' and define tools with '@tool'."
-                )
+            )
         tool_registry: dict[str, Callable] = {}
         for method_name in dir(self):
             if method_name.startswith("_") or method_name in (
