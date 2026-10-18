@@ -149,7 +149,9 @@ def test_execute_tool_error_handling():
     assert is_err is True
     assert "missing" in err_msg or "divide()" in err_msg
 
-    is_err, err_msg = tool_instance.execute_tool("divide", {"101_error": "malformed JSON input"})
+    is_err, err_msg = tool_instance.execute_tool(
+        "divide", {"101_error": "malformed JSON input"}
+    )
     assert is_err is True
     assert err_msg == '{"101_error": "malformed JSON input"}'
 
@@ -174,3 +176,29 @@ def test_execute_tool_non_serializable_return():
     is_err, err_msg = instance.execute_tool("get_set", {})
     assert is_err is True
     assert "not JSON serializable" in err_msg or "TypeError" in err_msg
+
+
+def test_tool_schema_ignores_varargs_and_supports_unannotated_params():
+    class FlexTool(BaseTool):
+        @tool()
+        def process(self, raw_input, count: int = 1, *args, **kwargs) -> str:
+            return f"{raw_input}_{count}_{len(args)}_{len(kwargs)}"
+
+    instance = FlexTool()
+    schemas = instance.get_tool_schemas()
+    assert len(schemas) == 1
+
+    props = schemas[0]["function"]["parameters"]["properties"]
+    required = schemas[0]["function"]["parameters"]["required"]
+
+    assert "raw_input" in props
+    assert "count" in props
+    assert "args" not in props
+    assert "kwargs" not in props
+    assert required == ["raw_input"]
+
+    is_err, result = instance.execute_tool(
+        "process", {"raw_input": "hello", "count": 3}
+    )
+    assert is_err is False
+    assert result == '"hello_3_0_0"'
