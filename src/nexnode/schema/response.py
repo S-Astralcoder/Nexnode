@@ -1,11 +1,11 @@
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChatCompletionFunction(BaseModel):
-    name: str
+    name: str = Field(max_length=64)
     arguments: str
 
     @property

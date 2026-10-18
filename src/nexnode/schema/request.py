@@ -11,15 +11,13 @@ from .messages import (
 
 
 class ChatCompletionHeader(BaseModel):
-    authorization: str
+    token: str = Field(min_length=1)
     content_type: Literal["application/json"] = "application/json"
 
     @model_serializer
-    def serialize_headers(self):
+    def serialize_headers(self) -> dict[str, str]:
         return {
-            "Authorization": self.authorization.strip()
-            if self.authorization.strip().startswith("Bearer")
-            else f"Bearer {self.authorization}",
+            "Authorization": f"Bearer {self.token}",
             "Content-Type": self.content_type,
         }
 
