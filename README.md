@@ -1,27 +1,23 @@
 # Nexnode
 
-> [!WARNING]
-> **Active Beta Development — Feature Freeze in Effect**  
-> Nexnode is undergoing initial testing, bug detection, and stability hardening.  
-> **No new features will be introduced** until existing core components pass rigorous testing rounds.
-
 A lightweight, node-based Python agent framework built for **maximum control and minimal abstraction**. Zero hidden magic, explicit state transitions, first-class tool governance, and unrestricted access to execution internals.
 
 > [!NOTE]
 > **Why "Node-Based"?**  
-> Nexnode treats agents as atomic, isolated execution units ("Nodes") designed to be linked across topologies via a forthcoming Linker layer (where inter-node handoffs can be dispatched as tool calls). In this **Beta phase**, testing and hardening focus strictly on single-node execution stability, memory invariants, and tool governance before multi-node linking is introduced.
+> Nexnode treats agents as atomic, isolated execution units ("Nodes"). Each node manages its own configuration, state, and memory invariants, designed to be connected across topologies via a forthcoming Linker layer (where inter-node handoffs can be dispatched as tool calls).
 
 ---
 
 ## Architecture at a Glance
 
-Nexnode splits agent operations into explicit, inspectable primitives:
+Nexnode exposes its core engine through clean root exports and dedicated sub-namespaces:
 
-- **[`AgentConfig`](src/nexnode/core/config.py)**: Typed client settings for any OpenAI-compatible endpoint.
-- **[`AgentMemory`](src/nexnode/core/memory.py)**: State-machine guarded message buffer preventing malformed API requests.
-- **[`BaseTool`](src/nexnode/tool/base.py)**: Schema generator using type hints and docstrings with `{Class}__{method}` namespacing.
 - **[`BaseAgentNode`](src/nexnode/core/agent.py)**: Autonomous execution loop with pre/post-execution policy hooks.
 - **[`SequentialAgentNode`](src/nexnode/core/agent.py)**: Single-step execution node for human-in-the-loop validation, custom scheduling, and fine-grained state manipulation.
+- **[`config`](src/nexnode/core/config.py)**: Typed client settings for any OpenAI-compatible endpoint (`nexnode.config.AgentConfig`).
+- **[`memory`](src/nexnode/core/memory.py)**: State-machine guarded message buffer preventing malformed API requests (`nexnode.memory.AgentMemory`).
+- **[`BaseTool`](src/nexnode/tool/base.py) & [`@tool`](src/nexnode/tool/base.py)**: Schema generator using type hints and docstrings with `{Class}__{method}` namespacing.
+- **[`schema.messages`](src/nexnode/schema/messages.py)**: Strictly typed conversation payloads (`SystemMessage`, `UserMessage`, `AssistantMessage`, `ToolCallResultMessage`).
 
 ```mermaid
 flowchart LR
@@ -41,7 +37,7 @@ flowchart LR
 
 ## Message Types & Schemas
 
-All conversation state in Nexnode is represented by typed Pydantic message models defined in `nexnode.schema.messages`. Unlike monolithic dictionaries, each message type enforces role boundaries and structural constraints:
+To prevent namespace clutter at the package root, message schemas reside in `nexnode.schema.messages`. Each message type enforces role boundaries and structural constraints:
 
 | Message Class | Role | Attributes | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -54,12 +50,12 @@ All conversation state in Nexnode is represented by typed Pydantic message model
 > **Automatic Conversion**: You do not need to manually parse [`ChatCompletionResponse`](src/nexnode/schema/response.py) into an `AssistantMessage`. Passing a raw `ChatCompletionResponse` directly to `memory.add(response)` automatically extracts the choice message and appends it as an `AssistantMessage`.
 
 ```python
-from nexnode.schema.messages import SystemMessage, UserMessage, ToolCallResultMessage
-from nexnode.core.memory import AgentMemory
+from nexnode import memory
+from nexnode.schema.messages import SystemMessage, UserMessage
 
-memory = AgentMemory()
-memory.add(SystemMessage(content="You are a precise data analysis assistant."))
-memory.add(UserMessage(content="Parse this quarterly report."))
+agent_memory = memory.AgentMemory()
+agent_memory.add(SystemMessage(content="You are a precise data analysis assistant."))
+agent_memory.add(UserMessage(content="Parse this quarterly report."))
 ```
 
 ---
@@ -74,10 +70,8 @@ Requires **Python >= 3.12**.
 # Using uv
 uv add nexnode
 
-# Local development / testing setup
-git clone https://github.com/S-Astralcoder/Nexnode.git
-cd Nexnode
-uv sync
+# Using pip
+pip install nexnode
 ```
 
 ---
@@ -88,18 +82,16 @@ Runs a prompt through an automated LLM call-and-tool loop until completion or it
 
 ```python
 import os
-from nexnode.core.agent import BaseAgentNode
-from nexnode.core.config import AgentConfig
-from nexnode.core.memory import AgentMemory
+from nexnode import BaseAgentNode, config, memory
 
-config = AgentConfig(
+agent_config = config.AgentConfig(
     base_url="https://api.openai.com/v1",
     api_key=os.environ["OPENAI_API_KEY"],
     model="gpt-4o-mini",
     temperature=0.7,
 )
 
-agent = BaseAgentNode(config=config, memory=AgentMemory())
+agent = BaseAgentNode(config=agent_config, memory=memory.AgentMemory())
 response = agent.send_prompt("Summarize the theory of relativity in one sentence.")
 print(response.choices[0].message.content)
 ```
@@ -115,10 +107,7 @@ Subclass `BaseTool` and annotate methods with `@tool()`. Schemas are automatical
 
 ```python
 import os
-from nexnode.core.agent import BaseAgentNode
-from nexnode.core.config import AgentConfig
-from nexnode.core.memory import AgentMemory
-from nexnode.tool.base import BaseTool, tool
+from nexnode import BaseAgentNode, BaseTool, config, memory, tool
 
 
 class Calculator(BaseTool):
@@ -129,12 +118,12 @@ class Calculator(BaseTool):
 
 
 agent = BaseAgentNode(
-    config=AgentConfig(
+    config=config.AgentConfig(
         base_url="https://api.openai.com/v1",
         api_key=os.environ["OPENAI_API_KEY"],
         model="gpt-4o",
     ),
-    memory=AgentMemory(),
+    memory=memory.AgentMemory(),
     tools=[Calculator()],
 )
 
@@ -149,7 +138,7 @@ print(response.choices[0].message.content)
 Intercept and veto tool calls or sanitize outputs by implementing hooks on `BaseAgentNode` or `SequentialAgentNode` (both inherit from `_BaseAgentNode`):
 
 ```python
-from nexnode.core.agent import BaseAgentNode
+from nexnode import BaseAgentNode
 from nexnode.exceptions import ToolCallPermissionError, ToolCallResultPermissionError
 from nexnode.schema.messages import ToolCallResultMessage
 from nexnode.schema.response import ChatCompletionToolCall
@@ -177,19 +166,25 @@ For human-in-the-loop approvals, step debugging, or custom orchestration runtime
 
 ```python
 import os
-from nexnode.core.agent import SequentialAgentNode
-from nexnode.core.config import AgentConfig
-from nexnode.core.memory import AgentMemory
+from nexnode import BaseTool, SequentialAgentNode, config, memory, tool
 from nexnode.schema.messages import ToolCallResultMessage, UserMessage
 from nexnode.schema.response import ChatCompletionResponse
 
+
+class Calculator(BaseTool):
+    @tool()
+    def multiply(self, a: float, b: float) -> float:
+        """Multiply two floating-point numbers."""
+        return a * b
+
+
 node = SequentialAgentNode(
-    config=AgentConfig(
+    config=config.AgentConfig(
         base_url="https://api.openai.com/v1",
         api_key=os.environ["OPENAI_API_KEY"],
         model="gpt-4o-mini",
     ),
-    memory=AgentMemory(),
+    memory=memory.AgentMemory(),
     tools=[Calculator()],
 )
 
@@ -238,7 +233,7 @@ Nexnode is built on a simple premise: **you own the agent, not the framework**. 
    - Clear the queue to abort remaining calls.
 
 ```python
-# Example: Inspecting and resetting internal state
+# Inspect current node state
 print(f"Current node state: {node._internal_state}")
 
 # Abort remaining tool calls mid-flight
@@ -286,22 +281,37 @@ if node._internal_state == "AWAITING_TOOL_EXECUTION":
 
 ---
 
-## Beta Tester Focus Areas
+## Testing, Verification & Bug Reporting
 
-Testers: please concentrate on finding breakages in these specific areas:
+Version 1 is backed by an automated test suite verifying edge cases, state transitions, tool execution, and error handling. CI runs static checks (`ruff`, `pyright`) on every push via `check.yml` and executes test suites via `run_test.yml`.
 
-- [ ] **Memory Sequence Boundaries**: Pushing unusual multi-turn combinations into `AgentMemory`.
-- [ ] **Sequential Node State Queue**: Parallel tool calls, errors during step popping, and re-entry behavior.
-- [ ] **Tool Argument Validation**: Passing malformed, nested, or type-coerced JSON through `Pydantic` models.
-- [ ] **API & Backend Parity**: Testing against local/alternative providers (Ollama, vLLM, Groq, OpenRouter).
+### Running Tests Locally
+
+```bash
+# Run the test suite
+uv run pytest
+
+# Run linting and type checking
+uv run ruff check src tests
+uv run pyright
+```
+
+### Community Testing Focus Areas
+
+Testing and stabilization remain ongoing priorities. Testers and early adopters are encouraged to stress-test the following boundaries:
+
+- [ ] **Complex Multi-Turn Conversations**: Testing deeply nested alternating or branched message flows in `AgentMemory`.
+- [ ] **Tool Argument Edge Cases**: Passing nested objects, optional types, or coerced structures through `BaseTool`.
+- [ ] **Alternative Provider Compatibility**: Testing against local or non-OpenAI endpoints (Ollama, vLLM, Groq, OpenRouter).
+- [ ] **State Queue Interception**: Exercising sequential tool queue manipulation under high concurrency or early abort conditions.
 
 ### Submitting Bug Reports
 
 > [!IMPORTANT]
 > **What is NOT a Bug**: Failures or desynchronizations resulting from manually overriding or tampering with internal attributes (`_internal_state`, `_tool_execution_queue`, etc.) are classified as operator mishandling, not framework bugs. Do not file bug reports for issues arising from custom state mutation unless the defect reproduces on clean, untampered node runs.
 
-Include:
-1. Python version & OS.
+When reporting an issue, please include:
+1. Python version (`python --version`) and OS.
 2. Minimal reproducible script.
 3. Complete traceback.
 4. Expected vs observed behavior.
