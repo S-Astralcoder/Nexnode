@@ -33,3 +33,36 @@ def test_agent_config_default_values_contract():
     assert fields["response_format"].default is None
     assert fields["seed"].default is None
     assert fields["timeout"].default == 10
+
+
+def test_agent_config_optional_fields_populate_chat_completion_request():
+    from nexnode.schema.messages import UserMessage
+    from nexnode.schema.request import ChatCompletionRequest
+
+    config = AgentConfig(
+        base_url="https://api.openai.com/v1",
+        api_key="secret-key",
+        model="gpt-4o",
+        tool_choice="auto",
+        temperature=0.2,
+        top_p=0.95,
+        max_completion_tokens=256,
+        response_format={"type": "json_object"},
+        seed=42,
+        timeout=15,
+    )
+
+    req = ChatCompletionRequest(
+        tools=[],
+        messages=[UserMessage(content="Hello")],
+        **config.model_dump(),
+    )
+
+    dumped = req.model_dump(exclude_none=True)
+    assert dumped["model"] == "gpt-4o"
+    assert dumped["tool_choice"] == "auto"
+    assert dumped["temperature"] == 0.2
+    assert dumped["top_p"] == 0.95
+    assert dumped["max_completion_tokens"] == 256
+    assert dumped["response_format"] == {"type": "json_object"}
+    assert dumped["seed"] == 42

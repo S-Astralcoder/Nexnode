@@ -1,6 +1,6 @@
 import pytest
 
-from nexnode.exceptions import ToolNameLengthExceededError
+from nexnode.exceptions import DuplicateToolError, ToolNameLengthExceededError
 from nexnode.tool.base import BaseTool, tool
 
 
@@ -202,3 +202,19 @@ def test_tool_schema_ignores_varargs_and_supports_unannotated_params():
     )
     assert is_err is False
     assert result == '"hello_3_0_0"'
+
+
+def test_duplicate_tool_error_in_tool_registry(monkeypatch: pytest.MonkeyPatch):
+    class DuplicatedToolClass(BaseTool):
+        @tool()
+        def sample(self) -> str:
+            return "ok"
+
+    monkeypatch.setattr(
+        "nexnode.tool.base.dir",
+        lambda obj: ["sample", "sample"],
+        raising=False,
+    )
+
+    with pytest.raises(DuplicateToolError):
+        DuplicatedToolClass()

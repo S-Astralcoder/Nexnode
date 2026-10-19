@@ -150,3 +150,53 @@ def test_chat_completion_request_and_response_happy_path():
     assert resp.id == "chatcmpl-123"
     assert resp.choices[0].message.content == "Pong"
     assert resp.usage.total_tokens == 15 # pyright: ignore[reportOptionalMemberAccess]
+
+
+def test_chat_completion_response_with_minimal_optional_fields():
+    from nexnode.schema.response import ChatCompletionResponse
+
+    minimal_payload = {
+        "id": "chatcmpl-min",
+        "object": "chat.completion",
+        "created": 1700000000,
+        "model": "gpt-4o",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "Minimal response",
+                },
+            }
+        ],
+    }
+
+    resp = ChatCompletionResponse(**minimal_payload)
+    assert resp.id == "chatcmpl-min"
+    assert resp.system_fingerprint is None
+    assert resp.service_tier is None
+    assert resp.usage is None
+    assert resp.choices[0].finish_reason is None
+    assert resp.choices[0].logprobs is None
+    assert resp.choices[0].message.refusal is None
+    assert resp.choices[0].message.tool_calls is None
+    assert resp.choices[0].message.extra_content is None
+
+
+def test_user_message_multimodal_content_payload():
+    from nexnode.schema.messages import UserMessage
+
+    multimodal_parts = [
+        {"type": "text", "text": "What is in this image?"},
+        {
+            "type": "image_url",
+            "image_url": {"url": "https://example.com/chart.png"},
+        },
+    ]
+
+    msg = UserMessage(content=multimodal_parts)
+    assert msg.role == "user"
+    assert isinstance(msg.content, list)
+    assert len(msg.content) == 2
+    assert msg.content[0]["type"] == "text"
+    assert msg.content[1]["image_url"]["url"] == "https://example.com/chart.png"

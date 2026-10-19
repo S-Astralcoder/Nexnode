@@ -441,9 +441,106 @@ def test_send_prompt_successful_tool_execution_flow(monkeypatch: pytest.MonkeyPa
     assert messages[3].content == "The result of 6 multiplied by 7 is 42."
 
 
+def test_send_prompt_multiple_tools_in_single_turn(monkeypatch: pytest.MonkeyPatch):
+    class Arithmetic(BaseTool):
+        @tool()
+        def add(self, a: int, b: int) -> int:
+            return a + b
 
+        @tool()
+        def multiply(self, a: int, b: int) -> int:
+            return a * b
 
+    agent = BaseAgentNode(
+        config=AgentConfig(base_url="https://api.test", api_key="test", model="gpt-4o"),
+        memory=AgentMemory(),
+        tools=[Arithmetic()],
+    )
 
+    parallel_tool_response = {
+        "id": "chatcmpl-multi",
+        "object": "chat.completion",
+        "created": 1700000000,
+        "model": "gpt-4o",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_add",
+                            "type": "function",
+                            "function": {
+                                "name": "Arithmetic__add",
+                                "arguments": '{"a": 10, "b": 20}',
+                            },
+                        },
+                        {
+                            "id": "call_mult",
+                            "type": "function",
+                            "function": {
+                                "name": "Arithmetic__multiply",
+                                "arguments": '{"a": 3, "b": 4}',
+                            },
+                        },
+                    ],
+                },
+                "finish_reason": "tool_calls",
+            }
+        ],
+    }
 
+    final_response_data = {
+        "id": "chatcmpl-final",
+        "object": "chat.completion",
+        "created": 1700000001,
+        "model": "gpt-4o",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "Sum is 30 and product is 12.",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+    }
 
+    call_count = 0
 
+    class MockResp:
+        def __init__(self, data: dict):
+            self._data = data
+
+        def json(self):
+            return self._data
+
+        def raise_for_status(self):
+            pass
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_count
+        resp = MockResp(parallel_tool_response if call_count == 0 else final_response_data)
+        call_count += 1
+        return resp
+
+    monkeypatch.setattr(agent.client, "post", mock_post)
+
+    resp = agent.send_prompt("Compute 10+20 and 3*4")
+    assert resp.choices[0].message.content == "Sum is 30 and product is 12."
+
+    messages = agent.memory.get_messages()
+    assert len(messages) == 5
+    assert isinstance(messages[0], UserMessage)
+    assert isinstance(messages[1], AssistantMessage)
+    assert len(messages[1].tool_calls) == 2  # pyright: ignore[reportArgumentType]
+    assert isinstance(messages[2], ToolCallResultMessage)
+    assert messages[2].tool_call_id == "call_add"
+    assert messages[2].content == "30"
+    assert isinstance(messages[3], ToolCallResultMessage)
+    assert messages[3].tool_call_id == "call_mult"
+    assert messages[3].content == "12"
+    assert isinstance(messages[4], AssistantMessage)
