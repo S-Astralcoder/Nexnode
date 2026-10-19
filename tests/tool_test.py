@@ -166,16 +166,40 @@ def test_basetool_direct_schema_methods_raise_not_implemented():
         mock_base._build_function_schema(lambda: None)
 
 
-def test_execute_tool_non_serializable_return():
-    class UnserializableTool(BaseTool):
+def test_execute_tool_converts_non_string_returns():
+    class ConversionTool(BaseTool):
         @tool()
         def get_set(self) -> set:
             return {1, 2, 3}
 
-    instance = UnserializableTool()
-    is_err, err_msg = instance.execute_tool("get_set", {})
+        @tool()
+        def get_dict(self) -> dict:
+            return {"status": "ok", "code": 200}
+
+        @tool()
+        def get_unstringable(self):
+            class Broken:
+                def __str__(self):
+                    raise ValueError("cannot stringify")
+
+            return Broken()
+
+    instance = ConversionTool()
+
+    # Non-string set is converted via json.dumps(..., default=str)
+    is_err, result = instance.execute_tool("get_set", {})
+    assert is_err is False
+    assert result == '"{1, 2, 3}"'
+
+    # Non-string dict is converted directly to JSON string
+    is_err, result = instance.execute_tool("get_dict", {})
+    assert is_err is False
+    assert result == '{"status": "ok", "code": 200}'
+
+    # Object whose string conversion raises is caught as an execution error
+    is_err, err_msg = instance.execute_tool("get_unstringable", {})
     assert is_err is True
-    assert "not JSON serializable" in err_msg or "TypeError" in err_msg
+    assert "cannot stringify" in err_msg
 
 
 def test_tool_schema_ignores_varargs_and_supports_unannotated_params():
@@ -201,7 +225,7 @@ def test_tool_schema_ignores_varargs_and_supports_unannotated_params():
         "process", {"raw_input": "hello", "count": 3}
     )
     assert is_err is False
-    assert result == '"hello_3_0_0"'
+    assert result == "hello_3_0_0"
 
 
 def test_duplicate_tool_error_in_tool_registry(monkeypatch: pytest.MonkeyPatch):
