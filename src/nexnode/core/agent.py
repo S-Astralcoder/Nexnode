@@ -184,7 +184,7 @@ class BaseAgentNode(_BaseAgentNode):
         return response
 
 
-class SequentialAgentNode(_BaseAgentNode):  # beta node design
+class SequentialAgentNode(_BaseAgentNode):  # beta node design (it's a design i came up with out of the blue, still don't know how well it can be used in projects.)
     def __init__(
         self,
         config: AgentConfig,
