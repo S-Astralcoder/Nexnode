@@ -19,9 +19,7 @@ from nexnode.schema.messages import (
     UserMessage,
 )
 from nexnode.schema.response import (
-    ChatCompletionChoice,
     ChatCompletionFunction,
-    ChatCompletionMessage,
     ChatCompletionResponse,
     ChatCompletionToolCall,
 )
