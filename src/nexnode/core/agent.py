@@ -18,7 +18,7 @@ from ..exceptions import (
 from ..schema.messages import ToolCallResultMessage, UserMessage
 from ..schema.request import ChatCompletionHeader, ChatCompletionRequest, ToolDefinition
 from ..schema.response import ChatCompletionResponse, ChatCompletionToolCall
-from ..tool.base import BaseTool
+from ..tools.base import BaseTool
 from .config import AgentConfig
 from .memory import AgentMemory
 

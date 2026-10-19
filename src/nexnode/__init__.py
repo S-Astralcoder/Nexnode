@@ -1,7 +1,7 @@
 from .core import config as config
 from .core import memory as memory
 from .core.agent import BaseAgentNode, SequentialAgentNode
-from .tool.base import BaseTool, tool
+from .tools.base import BaseTool, tool
 
 __all__ = [
     "BaseAgentNode",

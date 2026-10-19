@@ -16,7 +16,7 @@ from nexnode.schema.messages import (
     UserMessage,
 )
 from nexnode.schema.response import ChatCompletionResponse, ChatCompletionToolCall
-from nexnode.tool.base import BaseTool, tool
+from nexnode.tools.base import BaseTool, tool
 
 
 class MockTool(BaseTool):

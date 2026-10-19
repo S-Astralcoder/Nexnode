@@ -1,7 +1,7 @@
 import pytest
 
 from nexnode.exceptions import DuplicateToolError, ToolNameLengthExceededError
-from nexnode.tool.base import BaseTool, tool
+from nexnode.tools.base import BaseTool, tool
 
 
 def test_creation_of_basetool_class_instance_not_allowed():
@@ -211,7 +211,7 @@ def test_duplicate_tool_error_in_tool_registry(monkeypatch: pytest.MonkeyPatch):
             return "ok"
 
     monkeypatch.setattr(
-        "nexnode.tool.base.dir",
+        "nexnode.tools.base.dir",
         lambda obj: ["sample", "sample"],
         raising=False,
     )
