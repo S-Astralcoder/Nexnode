@@ -315,3 +315,13 @@ When reporting an issue, please include:
 2. Minimal reproducible script.
 3. Complete traceback.
 4. Expected vs observed behavior.
+
+---
+
+## Upcoming Features (v2 Roadmap)
+
+Following the stabilization of Version 1, subsequent development will focus on lowering setup friction and enabling multi-node topologies:
+
+- **Node Linker**: A plug-and-link mechanism to connect independent agent nodes into larger workflows, allowing node-to-node transitions to be invoked seamlessly or dispatched directly as tool calls.
+- **Standalone `@tool` Decorator & Functional Registry**: Direct tool registration for standalone functions without mandatory `BaseTool` subclassing, streamlining single-function utilities.
+- **Pre-Configured Default Agent Nodes**: Turnkey agent nodes with sensible pre-wired memory and configuration defaults for rapid prototyping with minimal boilerplate.
