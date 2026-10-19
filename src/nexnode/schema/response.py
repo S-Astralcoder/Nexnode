@@ -12,8 +12,8 @@ class ChatCompletionFunction(BaseModel):
     def parsed_arguments(self) -> dict[str, Any]:
         try:
             return json.loads(self.arguments)
-        except json.JSONDecodeError as e:
-            return {"101_error": e}
+        except (json.JSONDecodeError, TypeError) as e:
+            return {"101_error": str(e), "error_type" : "Invalid JSON"}
 
 
 class ChatCompletionToolCall(BaseModel):

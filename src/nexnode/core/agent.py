@@ -41,6 +41,15 @@ class _BaseAgentNode:
             base_url=self.config.base_url, timeout=self.config.timeout
         )
 
+    def close(self) -> None:
+        self.client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
     def before_tool_execution(self, tool_call: ChatCompletionToolCall) -> None:
         pass
 
@@ -119,8 +128,8 @@ class BaseAgentNode(_BaseAgentNode):
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
         function_class, function_name = (
-            tool_call.function.name.split("__")
-            if len(tool_call.function.name.split("__")) == 2
+            tool_call.function.name.split("__", 1)
+            if len(tool_call.function.name.split("__", 1)) == 2
             else ["", tool_call.function.name]
         )
         arguments: dict[str, Any] = tool_call.function.parsed_arguments
@@ -212,8 +221,8 @@ class SequentialAgentNode(_BaseAgentNode):  # beta node design (it's a design i 
         self, tool_call: ChatCompletionToolCall
     ) -> ToolCallResultMessage:
         function_class, function_name = (
-            tool_call.function.name.split("__")
-            if len(tool_call.function.name.split("__")) == 2
+            tool_call.function.name.split("__", 1)
+            if len(tool_call.function.name.split("__", 1)) == 2
             else ["", tool_call.function.name]
         )
         arguments: dict[str, Any] = tool_call.function.parsed_arguments

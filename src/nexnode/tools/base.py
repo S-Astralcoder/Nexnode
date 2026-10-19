@@ -21,7 +21,7 @@ class BaseTool:
         self.tool_registry: dict[str, Callable] = self._discover_tools()
 
     def _discover_tools(self) -> dict[str, Callable]:
-        if self.__class__ is BaseTool:
+        if self.__class__ is BaseTool: # This prevents direct use of basetool class.
             raise NotImplementedError(
                 "Cannot discover tools directly from 'BaseTool'. Subclass 'BaseTool' and define tools with '@tool'."
             )
@@ -86,7 +86,7 @@ class BaseTool:
         return {
             "type": "function",
             "function": {
-                "name": name,
+                "name": name, # name schema : {class_name}__{function_name}
                 "description": description,
                 "parameters": parameter_schema,
             },
@@ -108,9 +108,10 @@ class BaseTool:
                 arguments.get("101_error") is not None
             ):  # a weird way to handel but works right!
                 return (True, json.dumps(arguments))
+            result = self.tool_registry[tool_name](**arguments)
             return (
                 False,
-                json.dumps(self.tool_registry[tool_name](**arguments)),
+                result if isinstance(result, str) else json.dumps(result, default=str),
             )  # Any error including invalid argument will be considered as a function call error and send back to the agent to fix it's problem.
         except Exception as e:  # noqa: BLE001
             return (True, f"{e}")
