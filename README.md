@@ -16,7 +16,7 @@ Nexnode exposes its core engine through clean root exports and dedicated sub-nam
 - **[`SequentialAgentNode`](src/nexnode/core/agent.py)**: Single-step execution node for human-in-the-loop validation, custom scheduling, and fine-grained state manipulation.
 - **[`config`](src/nexnode/core/config.py)**: Typed client settings for any OpenAI-compatible endpoint (`nexnode.config.AgentConfig`).
 - **[`memory`](src/nexnode/core/memory.py)**: State-machine guarded message buffer preventing malformed API requests (`nexnode.memory.AgentMemory`).
-- **[`BaseTool`](src/nexnode/tool/base.py) & [`@tool`](src/nexnode/tool/base.py)**: Schema generator using type hints and docstrings with `{Class}__{method}` namespacing.
+- **[`BaseTool`](src/nexnode/tools/base.py) & [`@tool`](src/nexnode/tools/base.py)**: Schema generator using type hints and docstrings with `{Class}__{method}` namespacing.
 - **[`schema.messages`](src/nexnode/schema/messages.py)**: Strictly typed conversation payloads (`SystemMessage`, `UserMessage`, `AssistantMessage`, `ToolCallResultMessage`).
 
 ```mermaid
